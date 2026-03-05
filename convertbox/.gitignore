@@ -1,0 +1,19 @@
+# Geçici dosyalar
+uploads/
+output/
+foto/
+
+# Veri dosyaları (runtime'da oluşur)
+data/
+
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Locks (bun)
+bun.lock
+
+# Misc
+*.log

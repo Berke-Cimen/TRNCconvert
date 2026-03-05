@@ -1,0 +1,15 @@
+{
+  "name": "convertbox",
+  "version": "1.0.0",
+  "main": "server.cjs",
+  "type": "commonjs",
+  "scripts": {
+    "start": "bun server.cjs",
+    "dev": "bun --hot server.cjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5"
+  }
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConvertBox</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css?v=2.0">
+    <script src="/js/security.js"></script>
+</head>
+<body>
+    <!-- Background layers -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+    <div class="bg-lines">
+        <div class="bg-line" style="--i:0"></div>
+        <div class="bg-line" style="--i:1"></div>
+        <div class="bg-line" style="--i:2"></div>
+        <div class="bg-line" style="--i:3"></div>
+        <div class="bg-line" style="--i:4"></div>
+    </div>
+    <canvas id="bgCanvas"></canvas>
+    <div class="grain"></div>
+
+    <main class="main">
+        <!-- Header -->
+        <header class="header anim-in" style="--delay: 0">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"></polyline>
+                        <line x1="4" y1="20" x2="21" y2="3"></line>
+                        <polyline points="21 16 21 21 16 21"></polyline>
+                        <line x1="15" y1="15" x2="21" y2="21"></line>
+                        <line x1="4" y1="4" x2="9" y2="9"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="logo-text">Convert<span>Box</span></h1>
+                    <p class="logo-sub">Professional File Converter</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Converter Panel -->
+        <div class="converter anim-in" style="--delay: 1">
+
+            <!-- Category Tabs -->
+            <div class="cat-tabs">
+                <button class="cat-tab active" data-cat="document">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Dokuman</span>
+                </button>
+                <button class="cat-tab" data-cat="image">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Gorsel</span>
+                </button>
+                <button class="cat-tab" data-cat="audio">
+                    <i class="fa-solid fa-headphones"></i>
+                    <span>Ses</span>
+                </button>
+                <button class="cat-tab" data-cat="video">
+                    <i class="fa-solid fa-film"></i>
+                    <span>Video</span>
+                </button>
+            </div>
+
+            <!-- Drop Zone -->
+            <div class="dropzone" id="dropzone">
+                <input type="file" id="fileInput" class="dropzone-input">
+                <div class="dropzone-content">
+                    <div class="dropzone-icon">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <p class="dropzone-title">Dosya Yukle</p>
+                    <p class="dropzone-hint">Surukle & birak veya <span class="dropzone-browse">dosya sec</span></p>
+                    <p class="dropzone-limit">Maks. 100MB</p>
+                </div>
+                <div class="dropzone-file" id="dropzoneFile" style="display:none">
+                    <div class="file-info">
+                        <div class="file-icon"><i class="fa-solid fa-file"></i></div>
+                        <div class="file-details">
+                            <p class="file-name" id="fileName"></p>
+                            <p class="file-size" id="fileSize"></p>
+                        </div>
+                    </div>
+                    <button class="file-remove" id="fileRemove" title="Kaldir">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Options Row -->
+            <div class="options-row">
+                <div class="option-group">
+                    <label class="option-label">Cikti Formati</label>
+                    <div class="format-chips" id="formatChips"></div>
+                </div>
+                <div class="option-group" id="qualityWrapper" style="display:none">
+                    <label class="option-label">Kalite</label>
+                    <div class="quality-toggle">
+                        <button class="q-btn" data-q="low">Dusuk</button>
+                        <button class="q-btn active" data-q="high">Yuksek</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Convert Button -->
+            <button id="convertBtn" class="convert-btn">
+                <span class="convert-btn-text">
+                    <i class="fa-solid fa-bolt"></i>
+                    Donustur
+                </span>
+                <span class="convert-btn-loading" style="display:none">
+                    <span class="spinner"></span>
+                    Isleniyor...
+                </span>
+            </button>
+
+            <!-- Progress Bar -->
+            <div class="progress-track" id="progressTrack" style="display:none">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <!-- Status -->
+            <div id="status" class="status-area"></div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer anim-in" style="--delay: 2">
+        </footer>
+    </main>
+
+    <!-- Hidden select for backward compat -->
+    <select id="category" style="display:none">
+        <option value="document">Dokuman</option>
+        <option value="image">Gorsel</option>
+        <option value="audio">Ses</option>
+        <option value="video">Video</option>
+    </select>
+    <select id="qualitySelect" style="display:none">
+        <option value="low">Dusuk</option>
+        <option value="high">Yuksek</option>
+    </select>
+
+    <script src="js/app.js?v=2.1"></script>
+    <script src="js/bg.js?v=2.0"></script>
+</body>
+</html>
