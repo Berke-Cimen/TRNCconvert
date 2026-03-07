@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ConvertBox</title>
+    <title>TRNCConvert</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
     <script src="/js/security.js"></script>
 </head>
 <body>
-    <!-- Background layers -->
+    <!-- Arka plan katmanları -->
     <div class="bg-grid"></div>
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
@@ -28,7 +28,7 @@
     <div class="grain"></div>
 
     <main class="main">
-        <!-- Header -->
+        <!-- Başlık -->
         <header class="header anim-in" style="--delay: 0">
             <div class="logo">
                 <div class="logo-icon">
@@ -41,24 +41,24 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="logo-text">Convert<span>Box</span></h1>
-                    <p class="logo-sub">Professional File Converter</p>
+                    <h1 class="logo-text">TRNC<span>Convert</span></h1>
+                    <p class="logo-sub">Profesyonel Dosya Dönüştürücü</p>
                 </div>
             </div>
         </header>
 
-        <!-- Converter Panel -->
+        <!-- Dönüştürücü Paneli -->
         <div class="converter anim-in" style="--delay: 1">
 
-            <!-- Category Tabs -->
+            <!-- Kategori Sekmeleri -->
             <div class="cat-tabs">
                 <button class="cat-tab active" data-cat="document">
                     <i class="fa-solid fa-file-lines"></i>
-                    <span>Dokuman</span>
+                    <span>Doküman</span>
                 </button>
                 <button class="cat-tab" data-cat="image">
                     <i class="fa-solid fa-image"></i>
-                    <span>Gorsel</span>
+                    <span>Görsel</span>
                 </button>
                 <button class="cat-tab" data-cat="audio">
                     <i class="fa-solid fa-headphones"></i>
@@ -70,82 +70,71 @@
                 </button>
             </div>
 
-            <!-- Drop Zone -->
+            <!-- Bırakma Alanı -->
             <div class="dropzone" id="dropzone">
-                <input type="file" id="fileInput" class="dropzone-input">
+                <input type="file" id="fileInput" class="dropzone-input" multiple>
                 <div class="dropzone-content">
                     <div class="dropzone-icon">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                     </div>
-                    <p class="dropzone-title">Dosya Yukle</p>
-                    <p class="dropzone-hint">Surukle & birak veya <span class="dropzone-browse">dosya sec</span></p>
+                    <p class="dropzone-title">Dosya Yükle</p>
+                    <p class="dropzone-hint">Sürükle & bırak veya <span class="dropzone-browse">dosya seç</span></p>
                     <p class="dropzone-limit">Maks. 100MB</p>
                 </div>
-                <div class="dropzone-file" id="dropzoneFile" style="display:none">
-                    <div class="file-info">
-                        <div class="file-icon"><i class="fa-solid fa-file"></i></div>
-                        <div class="file-details">
-                            <p class="file-name" id="fileName"></p>
-                            <p class="file-size" id="fileSize"></p>
-                        </div>
-                    </div>
-                    <button class="file-remove" id="fileRemove" title="Kaldir">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+                <div class="dropzone-file" id="dropzoneFile" style="display:none"></div>
             </div>
 
-            <!-- Options Row -->
+            <!-- Seçenekler -->
             <div class="options-row">
                 <div class="option-group">
-                    <label class="option-label">Cikti Formati</label>
+                    <label class="option-label">Çıktı Formatı</label>
                     <div class="format-chips" id="formatChips"></div>
                 </div>
                 <div class="option-group" id="qualityWrapper" style="display:none">
                     <label class="option-label">Kalite</label>
                     <div class="quality-toggle">
-                        <button class="q-btn" data-q="low">Dusuk</button>
-                        <button class="q-btn active" data-q="high">Yuksek</button>
+                        <button class="q-btn" data-q="low">Düşük</button>
+                        <button class="q-btn active" data-q="high">Yüksek</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Convert Button -->
+            <!-- Dönüştür Butonu -->
             <button id="convertBtn" class="convert-btn">
                 <span class="convert-btn-text">
                     <i class="fa-solid fa-bolt"></i>
-                    Donustur
+                    Dönüştür
                 </span>
                 <span class="convert-btn-loading" style="display:none">
                     <span class="spinner"></span>
-                    Isleniyor...
+                    İşleniyor...
                 </span>
             </button>
 
-            <!-- Progress Bar -->
+            <!-- İlerleme Çubuğu -->
             <div class="progress-track" id="progressTrack" style="display:none">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
 
-            <!-- Status -->
+            <!-- Durum -->
             <div id="status" class="status-area"></div>
         </div>
 
-        <!-- Footer -->
+        <!-- Alt Bilgi -->
         <footer class="footer anim-in" style="--delay: 2">
         </footer>
     </main>
 
-    <!-- Hidden select for backward compat -->
+    <!-- Geriye uyumluluk için gizli seçim kutuları -->
     <select id="category" style="display:none">
-        <option value="document">Dokuman</option>
-        <option value="image">Gorsel</option>
+        <option value="document">Doküman</option>
+        <option value="image">Görsel</option>
         <option value="audio">Ses</option>
         <option value="video">Video</option>
     </select>
     <select id="qualitySelect" style="display:none">
-        <option value="low">Dusuk</option>
-        <option value="high">Yuksek</option>
+        <option value="low">Düşük</option>
+        <option value="high">Yüksek</option>
     </select>
 
     <script src="js/app.js?v=2.1"></script>

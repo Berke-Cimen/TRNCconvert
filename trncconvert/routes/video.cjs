@@ -14,14 +14,24 @@ function convertVideo(input, output, quality) {
     let bitrate = quality === "low" ? "800k" : "2500k";
     let cmd = `ffmpeg -y -i "${input}" -b:v ${bitrate} "${output}"`;
 
-    exec(cmd, { timeout: 300000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+    exec(cmd, { timeout: 300000, maxBuffer: 10 * 1024 * 1024 }, (err) => {
       if (err) reject(err);
       else resolve();
     });
   });
 }
 
-router.post("/", upload.single("file"), async (req, res) => {
+router.post("/", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.json({ success: false, error: "Dosya boyutu 100MB limitini aşıyor." });
+      }
+      return res.json({ success: false, error: "Yükleme hatası: " + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) return res.json({ success: false, error: "Dosya alınamadı." });
 
   let format = String(req.body.format || "").toLowerCase();

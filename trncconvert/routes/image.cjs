@@ -1,33 +1,31 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const sharp = require("sharp");
+
 const upload = require("../utils/upload.cjs");
 const limiter = require("../utils/limiter.cjs");
 const sanitize = require("../utils/filename.cjs");
 const scheduleDelete = require("../utils/cleaner.cjs");
-const { exec } = require("child_process");
 
 const router = express.Router();
 
-function convertAudio(input, output, quality) {
-  return new Promise((resolve, reject) => {
-    let bitrate = quality === "low" ? "96k" : "192k";
-    let cmd = `ffmpeg -y -i "${input}" -b:a ${bitrate} "${output}"`;
-
-    exec(cmd, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
+router.post("/", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.json({ success: false, error: "Dosya boyutu 100MB limitini aşıyor." });
+      }
+      return res.json({ success: false, error: "Yükleme hatası: " + err.message });
+    }
+    next();
   });
-}
-
-router.post("/", upload.single("file"), async (req, res) => {
+}, async (req, res) => {
   if (!req.file) return res.json({ success: false, error: "Dosya alınamadı." });
 
   let format = String(req.body.format || "").toLowerCase();
-  let quality = String(req.body.quality || "high").toLowerCase();
+  const valid = ["png", "jpg", "webp"];
 
-  const valid = ["mp3", "wav"];
   if (!valid.includes(format))
     return res.json({ success: false, error: "Geçersiz format." });
 
@@ -41,7 +39,13 @@ router.post("/", upload.single("file"), async (req, res) => {
 
   await limiter(res, async () => {
     try {
-      await convertAudio(inputPath, outputPath, quality);
+      let p = sharp(inputPath);
+
+      if (format === "jpg") p = p.jpeg({ quality: 90 });
+      if (format === "png") p = p.png({ compressionLevel: 9 });
+      if (format === "webp") p = p.webp({ quality: 90 });
+
+      await p.toFile(outputPath);
 
       if (!fs.existsSync(outputPath))
         throw new Error("Çıktı oluşturulamadı.");

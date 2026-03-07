@@ -1,5 +1,5 @@
 // =============================================
-// ConvertBox — Vivid Background System
+// TRNCConvert — Vivid Background System
 // Meteor trails, pulsing nebula, constellation net,
 // mouse-reactive aurora waves
 // =============================================

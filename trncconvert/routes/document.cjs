@@ -20,7 +20,17 @@ function findLibreOffice() {
   return "soffice"; // fallback to PATH
 }
 
-router.post("/", upload.single("file"), async (req, res) => {
+router.post("/", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.json({ success: false, error: "Dosya boyutu 100MB limitini aşıyor." });
+      }
+      return res.json({ success: false, error: "Yükleme hatası: " + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) return res.json({ success: false, error: "Dosya alınamadı." });
 
   let format = String(req.body.format || "").toLowerCase();
@@ -48,8 +58,10 @@ router.post("/", upload.single("file"), async (req, res) => {
         await runCommand(cmd);
       } else {
         const soffice = findLibreOffice();
-        const cmd = `"${soffice}" --headless --convert-to ${format} --outdir "${outputDir}" "${inputPath}"`;
+        const userDir = `/tmp/libreoffice_${uid}`;
+        const cmd = `"${soffice}" --headless -env:UserInstallation=file://${userDir} --convert-to ${format} --outdir "${outputDir}" "${inputPath}"`;
         await runCommand(cmd);
+        fs.rm(userDir, { recursive: true, force: true }, () => {});
 
         const temp = path.join(
           outputDir,

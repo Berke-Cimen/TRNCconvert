@@ -5,35 +5,36 @@ ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
 ENV NODE_ENV=production
 ENV NEXT_DISABLE_OPTIMIZED_IMAGES=1
 
-# ---- System Dependencies (Python, LibreOffice, FFmpeg) ----
-RUN apt-get update && apt-get install -y \
+# ---- Sistem Bağımlılıkları (Python, LibreOffice, FFmpeg) ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip \
+    curl \
     libreoffice \
-    unoconv \
     ghostscript \
     ffmpeg \
     imagemagick \
     fonts-dejavu \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# ---- Fix ImageMagick Security Policy for PDF conversions ----
+# ---- ImageMagick güvenlik politikasını PDF dönüştürme için düzelt ----
 RUN sed -i 's/disable="read"//g' /etc/ImageMagick-6/policy.xml || true
 
-# ---- Python Dependencies ----
+# ---- Python Bağımlılıkları ----
 RUN pip3 install --upgrade pip
 RUN pip3 install pymupdf==1.21.1
 RUN pip3 install pdf2docx==0.5.6
 
-# ---- Node App Setup ----
+# ---- Node Uygulama Kurulumu ----
 WORKDIR /app
 
-# Önce package dosyalarını kopyala (Cache optimization)
+# Önce package dosyalarını kopyala (Önbellek optimizasyonu)
 COPY package*.json ./
 
 # Bağımlılıkları yükle
 RUN npm install --omit=dev
 
-# Geri kalan tüm proje dosyalarını kopyala
+# Geri kalan proje dosyalarını kopyala
 COPY . .
 
 # Gerekli klasörleri oluştur ve izinlerini ayarla

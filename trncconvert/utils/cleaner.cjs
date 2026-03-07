@@ -6,7 +6,7 @@ function scheduleDelete(files) {
     files.forEach(p => {
       if (p && fs.existsSync(p)) fs.unlink(p, () => {});
     });
-  }, 60000);
+  }, 10 * 60 * 1000);
 }
 
 function cleanOldFiles(dir, maxAgeMs) {

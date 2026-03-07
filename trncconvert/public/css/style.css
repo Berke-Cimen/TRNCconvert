@@ -1,5 +1,5 @@
 /* =============================================
-   ConvertBox v2.0 — Dark Industrial Theme
+   TRNCConvert v2.0 — Dark Industrial Theme
    ============================================= */
 
 :root {
@@ -725,6 +725,160 @@ body {
 
 .status-msg a:hover {
     opacity: 0.8;
+}
+
+/* ---- Queue List ---- */
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.queue-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+}
+
+.queue-item:hover {
+    border-color: var(--border-hover);
+}
+
+.queue-order {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--accent);
+    min-width: 24px;
+}
+
+.queue-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+}
+
+.queue-counter {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.queue-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: 1px dashed var(--border-hover);
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.queue-add-btn:hover {
+    border-color: var(--accent);
+    background: rgba(0, 229, 160, 0.06);
+}
+
+/* ---- Results List ---- */
+.results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-radius: var(--radius-xs);
+    font-size: 0.82rem;
+    animation: fadeSlideIn 0.3s ease;
+}
+
+.result-item.result-success {
+    background: rgba(0, 229, 160, 0.06);
+    border: 1px solid rgba(0, 229, 160, 0.12);
+}
+
+.result-item.result-error {
+    background: rgba(255, 71, 87, 0.06);
+    border: 1px solid rgba(255, 71, 87, 0.12);
+}
+
+.result-name {
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
+
+.result-download {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-decoration: none;
+    white-space: nowrap;
+    margin-left: 12px;
+    transition: opacity var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.result-download:hover {
+    opacity: 0.7;
+}
+
+.result-error-text {
+    color: var(--danger);
+    font-size: 0.75rem;
+    margin-left: 12px;
+    white-space: nowrap;
+}
+
+.zip-download-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px 16px;
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 229, 160, 0.06);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.zip-download-btn:hover {
+    background: rgba(0, 229, 160, 0.12);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-1px);
 }
 
 /* ---- Footer ---- */
