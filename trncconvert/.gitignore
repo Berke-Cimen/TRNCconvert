@@ -1,19 +1,7 @@
-# Geçici dosyalar
+node_modules/
 uploads/
 output/
-foto/
-
-# Veri dosyaları (runtime'da oluşur)
 data/
-
-# OS
+tests/.fixtures/
 .DS_Store
-
-# Dependencies
-node_modules/
-
-# Locks (bun)
-bun.lock
-
-# Misc
 *.log

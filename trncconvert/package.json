@@ -1,16 +1,22 @@
 {
   "name": "trncconvert",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "private": true,
   "main": "server.cjs",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.cjs",
-    "dev": "bun --hot server.cjs"
+    "test": "node --test \"tests/**/*.test.cjs\""
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/source-sans-3": "^5.3.1",
     "archiver": "^7.0.1",
     "express": "^4.21.2",
-    "multer": "^1.4.5-lts.1",
-    "sharp": "^0.33.5"
+    "multer": "^2.0.2",
+    "sharp": "^0.35.5"
   }
 }

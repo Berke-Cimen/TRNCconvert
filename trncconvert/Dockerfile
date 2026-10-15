@@ -1,52 +1,30 @@
-FROM node:20-bullseye
+# TRNCConvert — Coolify bu Dockerfile'ı build edip konteyneri çalıştırır.
+# Taban: Node 24 LTS (destek 2028-04-30'a kadar) + Debian 13 trixie.
+FROM node:24-trixie-slim
 
-ENV DISABLE_IMAGE_OPTIMIZATION=true
-ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
-ENV NODE_ENV=production
-ENV NEXT_DISABLE_OPTIMIZED_IMAGES=1
+ENV NODE_ENV=production     PATH=/opt/venv/bin:$PATH     PYTHONDONTWRITEBYTECODE=1     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# ---- Sistem Bağımlılıkları (Python, LibreOffice, FFmpeg) ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip \
-    curl \
-    libreoffice \
-    ghostscript \
-    ffmpeg \
-    imagemagick \
-    fonts-dejavu \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+# ---- Sistem bağımlılıkları ----
+# LibreOffice: belge dönüştürme. FFmpeg: ses/video. Fontlar: Calibri/Cambria uyumlu
+# metrikler ve Türkçe karakterler için.
+RUN apt-get update && apt-get install -y --no-install-recommends         libreoffice-writer libreoffice-calc libreoffice-impress         ffmpeg         python3 python3-venv         fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito         fonts-crosextra-caladea fonts-noto-core         curl ca-certificates     && rm -rf /var/lib/apt/lists/*
 
-# ---- ImageMagick güvenlik politikasını PDF dönüştürme için düzelt ----
-RUN sed -i 's/disable="read"//g' /etc/ImageMagick-6/policy.xml || true
+# ---- Python bağımlılıkları (sabit sürümler) ----
+# pikepdf: PDF şifre kaldırma. msoffcrypto-tool: DOCX/XLSX/PPTX şifre kaldırma.
+# PyMuPDF + pdf2docx: PDF işlemleri. Pillow + pillow-heif: HEIC/BMP okuma.
+RUN python3 -m venv /opt/venv     && /opt/venv/bin/pip install --no-cache-dir         pikepdf==10.17.0         msoffcrypto-tool==6.0.0         PyMuPDF==1.28.2         pdf2docx==0.5.13         pillow==12.3.0         pillow-heif==1.8.1
 
-# ---- Python Bağımlılıkları ----
-RUN pip3 install --upgrade pip
-RUN pip3 install pymupdf==1.21.1
-RUN pip3 install pdf2docx==0.5.6
-
-# ---- Node Uygulama Kurulumu ----
+# ---- Node uygulaması ----
 WORKDIR /app
-
-# Önce package dosyalarını kopyala (Önbellek optimizasyonu)
 COPY package*.json ./
-
-# Bağımlılıkları yükle
-RUN npm install --omit=dev
-
-# Geri kalan proje dosyalarını kopyala
+RUN npm ci --omit=dev && npm cache clean --force
 COPY . .
 
-# Gerekli klasörleri oluştur ve izinlerini ayarla
-RUN mkdir -p uploads output public/img/characters public/music foto data scripts
-RUN chmod -R 777 uploads output public/img/characters public/music foto data
+RUN mkdir -p uploads output data     && chown -R node:node /app/uploads /app/output /app/data
 
-# Portu dışarı aç
+USER node
 EXPOSE 3000
 
-# Sağlık kontrolü (Her 30 saniyede bir kontrol et)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3   CMD curl -fsS http://localhost:3000/health || exit 1
 
-# Sunucuyu başlat
 CMD ["node", "server.cjs"]

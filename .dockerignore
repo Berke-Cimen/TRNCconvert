@@ -1,5 +1,9 @@
 **/node_modules
-trncconvert/node_modules
-
 .git
-.gitignore
+.github
+docs
+**/.DS_Store
+trncconvert/tests
+trncconvert/uploads
+trncconvert/output
+trncconvert/data
