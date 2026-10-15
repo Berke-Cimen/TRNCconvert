@@ -1,9 +1,35 @@
 "use strict";
+const net = require("net");
+
+const CLOUDFLARE_V4 = [
+  "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18",
+  "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17",
+  "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+];
+const CLOUDFLARE_V6 = [
+  "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32",
+  "2a06:98c0::/29", "2c0f:f248::/32",
+];
+
+const cloudflare = new net.BlockList();
+for (const c of CLOUDFLARE_V4) { const [a, b] = c.split("/"); cloudflare.addSubnet(a, Number(b), "ipv4"); }
+for (const c of CLOUDFLARE_V6) { const [a, b] = c.split("/"); cloudflare.addSubnet(a, Number(b), "ipv6"); }
+
+function normalizeIp(ip) {
+  const s = String(ip || "");
+  return s.startsWith("::ffff:") && net.isIPv4(s.slice(7)) ? s.slice(7) : s;
+}
+
+function fromCloudflare(ip) {
+  const family = net.isIPv4(ip) ? "ipv4" : net.isIPv6(ip) ? "ipv6" : null;
+  return family ? cloudflare.check(ip, family) : false;
+}
 
 function clientIp(req) {
+  const peer = normalizeIp(req.ip);
   const cf = req.get("cf-connecting-ip");
-  if (cf && /^[0-9a-fA-F:.]{3,45}$/.test(cf)) return cf;
-  return req.ip || "unknown";
+  if (cf && net.isIP(cf) && fromCloudflare(peer)) return normalizeIp(cf);
+  return peer || "unknown";
 }
 
 const SCALE = Math.max(1, Number(process.env.RATE_LIMIT_SCALE) || 1);

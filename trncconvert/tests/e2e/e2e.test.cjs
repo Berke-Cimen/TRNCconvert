@@ -30,10 +30,10 @@ async function postJson(url, body) {
   return { status: res.status, body: await res.json() };
 }
 
-async function waitJob(id, timeoutMs = 600000) {
+async function waitJob(id, token, timeoutMs = 600000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
-    const res = await fetch(`${BASE}/api/jobs/${id}`, { headers: UA });
+    const res = await fetch(`${BASE}/api/jobs/${id}?t=${token}`, { headers: UA });
     const body = await res.json();
     if (body.status === "done" || body.status === "error") return body;
     await sleep(500);
@@ -50,7 +50,7 @@ async function download(url) {
 async function convert(file, target, quality = "normal", name) {
   const r = await postFile("/api/convert", fx(file), { target, quality }, name);
   assert.equal(r.status, 202, `${file}->${target}: ${JSON.stringify(r.body)}`);
-  const job = await waitJob(r.body.id);
+  const job = await waitJob(r.body.id, r.body.token);
   assert.equal(job.status, "done", `${file}->${target}: ${JSON.stringify(job.error)}`);
   return { job, ...(await download(job.download.url)) };
 }
@@ -104,7 +104,7 @@ test("dönüşüm: Türkçe dosya adı indirme başlığında korunur", { skip: 
 
 test("dönüşüm: sessiz videodan MP3 anlaşılır hata verir", { skip: SKIP.has("media") || !fs.existsSync(fx("sample-silent.mp4")) }, async () => {
   const r = await postFile("/api/convert", fx("sample-silent.mp4"), { target: "mp3" });
-  const job = await waitJob(r.body.id);
+  const job = await waitJob(r.body.id, r.body.token);
   assert.equal(job.status, "error");
   assert.equal(job.error.code, "no_audio");
 });
@@ -131,7 +131,7 @@ test("dönüşüm: desteklenmeyen hedef ve tür reddedilir", async () => {
 test("kuyruk: aynı anda 6 iş sırayla tamamlanır", { skip: SKIP.has("image") }, async () => {
   const started = await Promise.all(Array.from({ length: 6 }, () => postFile("/api/convert", fx("sample.png"), { target: "webp" })));
   for (const s of started) assert.equal(s.status, 202);
-  const done = await Promise.all(started.map((s) => waitJob(s.body.id)));
+  const done = await Promise.all(started.map((s) => waitJob(s.body.id, s.body.token)));
   for (const d of done) assert.equal(d.status, "done");
 });
 
@@ -171,7 +171,7 @@ for (const [file, state, password, kind] of UNLOCK_CASES) {
   test(`şifre kaldırma: ${file}`, async () => {
     const insp = await unlock(file);
     assert.equal(insp.body.state, state);
-    const r = await postJson(`/api/unlock/${insp.body.id}`, { password });
+    const r = await postJson(`/api/unlock/${insp.body.id}`, { password, token: insp.body.token });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.status, "done");
     const { buf } = await download(r.body.download.url);
@@ -182,26 +182,26 @@ for (const [file, state, password, kind] of UNLOCK_CASES) {
 
 test("şifre kaldırma: Türkçe dosya adıyla şifresiz Word dosyası aynı adla iner", async () => {
   const insp = await unlock("enc.docx", null, "Gizli rapor şubat.docx");
-  const r = await postJson(`/api/unlock/${insp.body.id}`, { password: OFFICE_PW });
+  const r = await postJson(`/api/unlock/${insp.body.id}`, { password: OFFICE_PW, token: insp.body.token });
   assert.equal(r.body.download.name, "Gizli rapor şubat.docx");
 });
 
 test("şifre kaldırma: üç yanlış denemeden sonra dosya silinir", async () => {
   const insp = await unlock("pdf-r6-user.pdf");
   for (let left = 2; left >= 1; left--) {
-    const r = await postJson(`/api/unlock/${insp.body.id}`, { password: "yanlış" });
+    const r = await postJson(`/api/unlock/${insp.body.id}`, { password: "yanlış", token: insp.body.token });
     assert.equal(r.status, 401);
     assert.equal(r.body.attemptsLeft, left);
   }
-  const third = await postJson(`/api/unlock/${insp.body.id}`, { password: "yanlış" });
+  const third = await postJson(`/api/unlock/${insp.body.id}`, { password: "yanlış", token: insp.body.token });
   assert.equal(third.status, 403);
-  const fourth = await postJson(`/api/unlock/${insp.body.id}`, { password: "Şifre123!" });
+  const fourth = await postJson(`/api/unlock/${insp.body.id}`, { password: "Şifre123!", token: insp.body.token });
   assert.equal(fourth.status, 404);
 });
 
 test("şifre kaldırma: büyük/küçük harf farkı yanlış şifre sayılır", async () => {
   const insp = await unlock("enc.docx");
-  const r = await postJson(`/api/unlock/${insp.body.id}`, { password: OFFICE_PW.toLowerCase() });
+  const r = await postJson(`/api/unlock/${insp.body.id}`, { password: OFFICE_PW.toLowerCase(), token: insp.body.token });
   assert.equal(r.status, 401);
 });
 
@@ -256,4 +256,27 @@ test("sayfalar: robots.txt, 404 ve güvenlik başlıkları", async () => {
 test("sağlık kontrolü", async () => {
   const r = await fetch(BASE + "/health");
   assert.equal(await r.text(), "OK");
+});
+
+test("güvenlik: iş durumu ve şifre kaldırma anahtarsız erişilemez", async () => {
+  const r = await postFile("/api/convert", fx("sample.png"), { target: "jpg" });
+  const noToken = await fetch(`${BASE}/api/jobs/${r.body.id}`, { headers: UA });
+  assert.equal(noToken.status, 404);
+  await waitJob(r.body.id, r.body.token);
+  const insp = await unlock("pdf-r6-user.pdf");
+  const bad = await postJson(`/api/unlock/${insp.body.id}`, { password: "Şifre123!" });
+  assert.equal(bad.status, 404);
+  const good = await postJson(`/api/unlock/${insp.body.id}`, { password: "Şifre123!", token: insp.body.token });
+  assert.equal(good.status, 200);
+});
+
+test("güvenlik: ASCII olmayan anahtar 500 değil 404 döner", async () => {
+  const res = await fetch(`${BASE}/dl/${"a".repeat(32)}/${"%C3%A9".repeat(16)}`, { headers: UA });
+  assert.equal(res.status, 404);
+});
+
+test("güvenlik: çift eğik çizgili adres başka siteye yönlendirmez", async () => {
+  const res = await fetch(BASE + "//evil.example/", { headers: UA, redirect: "manual" });
+  assert.equal(res.status, 301);
+  assert.equal(res.headers.get("location"), "/evil.example");
 });

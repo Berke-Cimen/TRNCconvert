@@ -93,6 +93,7 @@ test("unlock: yanlış şifre 2 döner, çıktı oluşmaz, şifre stderr'e yazı
   const r = await helper(["unlock", fx("pdf-r6-user.pdf"), out("wrong.pdf")], pw(secret));
   assert.equal(r.code, 2);
   assert.equal(fs.existsSync(out("wrong.pdf")), false);
+  assert.equal(fs.existsSync(out("wrong.pdf.part")), false);
   assert.ok(!r.stderr.includes(secret) && !r.stdout.includes(secret));
   const big = "şifre".repeat(51);
   const r2 = await helper(["unlock", fx("pdf-r4-user.pdf"), out("wrong4.pdf")], pw(big));

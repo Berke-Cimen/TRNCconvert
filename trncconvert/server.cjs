@@ -98,8 +98,11 @@ app.get("/index.html", (req, res) => res.redirect(301, "/"));
 
 app.get("*", (req, res, next) => {
   if (req.method !== "GET" && req.method !== "HEAD") return next();
-  let p = req.path;
-  if (p.length > 1 && p.endsWith("/")) return res.redirect(301, p.slice(0, -1) + (req.originalUrl.slice(req.path.length) || ""));
+  const p = req.path;
+  if (p.length > 1 && p.endsWith("/")) {
+    const clean = "/" + p.replace(/^\/+/, "").replace(/\/+$/, "");
+    return res.redirect(301, clean);
+  }
   const html = PAGES.get(p);
   if (!html) return next();
   res.set("Cache-Control", "public, max-age=300");
@@ -111,7 +114,8 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("istek hatası:", err && err.message);
+  const sensitive = req.path.startsWith("/api/unlock") || (err && err.type === "entity.parse.failed");
+  console.error("istek hatası:", sensitive ? (err && err.type) || "unknown" : err && err.message);
   if (res.headersSent) return next(err);
   if (err && err.type === "entity.too.large") return res.status(413).json({ error: "too_large", message: "İstek çok büyük." });
   if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "bad_json", message: "Geçersiz istek." });
@@ -123,6 +127,7 @@ jobs.cleanStale(jobs.OUTPUT_DIR, 60 * 60 * 1000);
 setInterval(() => {
   jobs.sweep();
   jobs.cleanStale(UPLOAD_DIR, 30 * 60 * 1000);
+  jobs.cleanStale(jobs.OUTPUT_DIR, 20 * 60 * 1000, jobs.knownWorkDirs());
 }, 60 * 1000).unref();
 
 if (require.main === module) {

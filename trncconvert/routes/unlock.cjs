@@ -62,7 +62,7 @@ router.post("/inspect", limit, makeUpload(UNLOCKABLE), async (req, res) => {
     const originalName = (typeof req.body.name === "string" && req.body.name.slice(0, 255)) || fixLatin1(file.originalname);
     const job = jobs.createJob({ type: "unlock", inputPath: file.path, ext, originalName, target: ext, quality: null, ip });
     job.status = "awaiting_password";
-    res.json({ id: job.id, state: info.state, signed: Boolean(info.signed), kind: ext });
+    res.json({ id: job.id, token: job.token, state: info.state, signed: Boolean(info.signed), kind: ext });
   } catch (err) {
     discard(file);
     console.error("unlock inspect:", err.message);
@@ -73,7 +73,8 @@ router.post("/inspect", limit, makeUpload(UNLOCKABLE), async (req, res) => {
 router.post("/:id", limit, express.json({ limit: "8kb" }), async (req, res) => {
   res.set("Cache-Control", "no-store");
   const job = jobs.getJob(req.params.id);
-  if (!job || job.type !== "unlock" || job.status !== "awaiting_password") {
+  const token = req.body && req.body.token;
+  if (!job || job.type !== "unlock" || job.status !== "awaiting_password" || !jobs.tokenMatches(job, token)) {
     return res.status(404).json({ error: "not_found", message: MSG.not_found });
   }
   const password = req.body && typeof req.body.password === "string" ? req.body.password : null;
@@ -93,8 +94,7 @@ router.post("/:id", limit, express.json({ limit: "8kb" }), async (req, res) => {
   }
 
   if (r.code === EXIT.OK && fs.existsSync(out)) {
-    job.output = { path: out, name: `${displayBase(job.input.originalName)}.${job.input.ext}`, size: fs.statSync(out).size, mime: MIME[job.input.ext] };
-    job.status = "done";
+    jobs.complete(job, { path: out, name: `${displayBase(job.input.originalName)}.${job.input.ext}`, mime: MIME[job.input.ext] });
     fs.unlink(job.input.path, () => {});
     return res.json(jobs.publicView(job));
   }

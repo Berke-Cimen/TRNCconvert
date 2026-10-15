@@ -11,6 +11,9 @@ const MAX_ACTIVE = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS) || 3);
 const MAX_QUEUE = 60;
 const MAX_PER_IP = 12;
 const TTL_MS = 10 * 60 * 1000;
+const MAX_QUEUE_WAIT_MS = 30 * 60 * 1000;
+const PASSWORD_WAIT_MS = 15 * 60 * 1000;
+const HEX32 = /^[0-9a-f]{32}$/;
 
 const jobs = new Map();
 const queue = [];
@@ -26,12 +29,14 @@ function createJob({ type, inputPath, ext, originalName, target, quality, ip }) 
   const id = rid();
   const workDir = path.join(OUTPUT_DIR, id);
   fs.mkdirSync(workDir, { recursive: true });
+  const now = Date.now();
   const job = {
     id,
     token: rid(),
     type,
     status: "queued",
-    createdAt: Date.now(),
+    createdAt: now,
+    expiresAt: now + (type === "unlock" ? PASSWORD_WAIT_MS : MAX_QUEUE_WAIT_MS),
     ip,
     input: { path: inputPath, ext, originalName },
     target,
@@ -47,18 +52,20 @@ function createJob({ type, inputPath, ext, originalName, target, quality, ip }) 
 }
 
 function getJob(id) {
-  if (typeof id !== "string" || !/^[0-9a-f]{32}$/.test(id)) return null;
+  if (typeof id !== "string" || !HEX32.test(id)) return null;
   return jobs.get(id) || null;
 }
 
 function tokenMatches(job, token) {
-  if (!job || typeof token !== "string" || token.length !== job.token.length) return false;
+  if (!job || typeof token !== "string" || !HEX32.test(token)) return false;
   return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(job.token));
 }
 
+const HOLDING = new Set(["queued", "running", "awaiting_password"]);
+
 function activeCountForIp(ip) {
   let n = 0;
-  for (const j of jobs.values()) if (j.ip === ip && (j.status === "queued" || j.status === "running")) n++;
+  for (const j of jobs.values()) if (j.ip === ip && HOLDING.has(j.status)) n++;
   return n;
 }
 
@@ -83,11 +90,20 @@ function toPublicError(err) {
   return { code: "generic", message: MESSAGES.generic };
 }
 
-function finish(job, result) {
+function complete(job, result) {
   const stat = fs.statSync(result.path);
   job.output = { path: result.path, name: result.name, size: stat.size, mime: result.mime };
   job.status = "done";
   job.progress = null;
+  job.expiresAt = Date.now() + TTL_MS;
+}
+
+function failJob(job, err) {
+  job.status = "error";
+  job.error = toPublicError(err);
+  job.progress = null;
+  job.expiresAt = Date.now() + TTL_MS;
+  rmQuiet(job.workDir);
 }
 
 function pump() {
@@ -98,10 +114,9 @@ function pump() {
     const started = Date.now();
     Promise.resolve()
       .then(() => job.worker(job))
-      .then((result) => finish(job, result))
+      .then((result) => complete(job, result))
       .catch((err) => {
-        job.status = "error";
-        job.error = toPublicError(err);
+        failJob(job, err);
         if (!(err instanceof UserError)) {
           console.error(`[job ${job.id.slice(0, 8)}] ${job.input.ext}->${job.target} başarısız:`, err && err.message ? err.message.slice(0, 500) : err);
         }
@@ -131,19 +146,25 @@ function removeJob(id) {
   const qi = queue.indexOf(job);
   if (qi >= 0) queue.splice(qi, 1);
   rmQuiet(job.input.path);
-  if (job.status !== "running") rmQuiet(job.workDir);
+  if (job.status !== "running" || job.type === "unlock") rmQuiet(job.workDir);
 }
 
 function sweep(now = Date.now()) {
   for (const job of jobs.values()) {
-    if (job.status !== "running" && now - job.createdAt > TTL_MS) removeJob(job.id);
+    if (job.status === "running") continue;
+    if (now > job.expiresAt) removeJob(job.id);
   }
 }
 
-function cleanStale(dir, maxAgeMs) {
+function knownWorkDirs() {
+  return new Set([...jobs.values()].map((j) => path.basename(j.workDir)));
+}
+
+function cleanStale(dir, maxAgeMs, keep = new Set()) {
   if (!fs.existsSync(dir)) return;
   const now = Date.now();
   for (const name of fs.readdirSync(dir)) {
+    if (keep.has(name)) continue;
     const p = path.join(dir, name);
     try {
       if (now - fs.statSync(p).mtimeMs > maxAgeMs) rmQuiet(p);
@@ -157,6 +178,7 @@ function stats() {
 
 module.exports = {
   OUTPUT_DIR, TTL_MS, MAX_ACTIVE,
-  createJob, getJob, tokenMatches, canAccept, publicView, enqueue, removeJob, sweep, cleanStale, stats,
+  createJob, getJob, tokenMatches, canAccept, publicView, enqueue, removeJob, sweep, cleanStale,
+  knownWorkDirs, complete, failJob, stats,
   _jobs: jobs,
 };

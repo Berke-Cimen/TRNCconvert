@@ -161,6 +161,7 @@
     var target = "";
     var busy = false;
     var seq = 0;
+    var batch = { target: "", quality: "normal" };
 
     function inputsOf(cat) {
       for (var i = 0; i < catalog.categories.length; i++) {
@@ -336,6 +337,7 @@
     }
 
     function removeItem(it) {
+      if (busy) return;
       items = items.filter(function (x) { return x !== it; });
       it.el.li.remove();
       afterChange();
@@ -401,7 +403,7 @@
     bindDrop(drop, input, addFiles);
 
     function pollJob(it) {
-      return getJson("/api/jobs/" + it.jobId).then(function (r) {
+      return getJson("/api/jobs/" + it.jobId + "?t=" + encodeURIComponent(it.token)).then(function (r) {
         if (r.status === 404) {
           it.status = "error";
           it.error = "İşin süresi doldu. Lütfen dosyayı yeniden yükleyin.";
@@ -443,8 +445,8 @@
     function sendItem(it) {
       var fd = new FormData();
       fd.append("name", it.file.name);
-      fd.append("target", target);
-      fd.append("quality", qualityEl.value);
+      fd.append("target", batch.target);
+      fd.append("quality", batch.quality);
       fd.append("file", it.file, it.file.name);
       it.status = "uploading";
       it.progress = 0;
@@ -460,6 +462,7 @@
           return null;
         }
         it.jobId = r.data.id;
+        it.token = r.data.token;
         it.status = r.data.status;
         it.position = r.data.position;
         it.progress = null;
@@ -472,6 +475,8 @@
       var list = pendingItems();
       if (!list.length || !target || busy) return;
       busy = true;
+      batch = { target: target, quality: qualityEl.value };
+      list.forEach(function (it) { it.el.actions.textContent = ""; });
       convertBtn.disabled = true;
       convertBtn.textContent = "Dönüştürülüyor";
       options.hidden = true;
@@ -558,6 +563,7 @@
     var statusEl = $(root, "[data-status]");
     var accepted = (input.getAttribute("accept") || "").split(",").map(function (s) { return s.replace(".", ""); });
     var jobId = null;
+    var jobToken = null;
     var working = false;
 
     function setStatus(text, isError) {
@@ -567,6 +573,7 @@
 
     function reset() {
       jobId = null;
+      jobToken = null;
       working = false;
       drop.hidden = false;
       fileBox.hidden = true;
@@ -596,7 +603,7 @@
       working = true;
       submit.disabled = true;
       setStatus("Şifre kaldırılıyor.");
-      return postJson("/api/unlock/" + jobId, { password: password }).then(function (r) {
+      return postJson("/api/unlock/" + jobId, { password: password, token: jobToken }).then(function (r) {
         working = false;
         submit.disabled = false;
         if (r.ok && r.data.status === "done") {
@@ -662,6 +669,7 @@
           return;
         }
         jobId = d.id;
+        jobToken = d.token;
         signedWarning.hidden = !d.signed;
         if (d.state === "restrictions_only") {
           fileState.textContent = "Yalnızca kısıtlama şifresi var, şifre gerekmiyor";

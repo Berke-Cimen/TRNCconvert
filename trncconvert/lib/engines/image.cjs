@@ -12,6 +12,7 @@ sharp.cache(false);
 const NEEDS_NORMALIZE = new Set(["heic", "heif", "bmp"]);
 const ANIMATED_OUT = new Set(["gif", "webp"]);
 const MAX_PIXELS = 100 * 1000 * 1000;
+const SHARP_TIMEOUT_S = 120;
 
 const QUALITY = {
   jpg: { low: 70, normal: 82, high: 92 },
@@ -32,7 +33,7 @@ function pipeline(src, ext, target, quality) {
   const animated = ANIMATED_OUT.has(target) && (ext === "gif" || ext === "webp");
   const opts = { animated, limitInputPixels: MAX_PIXELS };
   if (ext === "svg") opts.density = 150;
-  let img = sharp(src, opts);
+  let img = sharp(src, opts).timeout({ seconds: SHARP_TIMEOUT_S });
   if (!animated) img = img.rotate();
   const q = (fmt) => QUALITY[fmt][quality] || QUALITY[fmt].normal;
   switch (target) {
@@ -58,7 +59,9 @@ async function convert(job) {
       const meta = await sharp(src, { limitInputPixels: MAX_PIXELS }).metadata();
       const usePng = Boolean(meta.hasAlpha);
       const tmp = path.join(job.workDir, usePng ? "page.png" : "page.jpg");
-      const p = sharp(src, { limitInputPixels: MAX_PIXELS, density: ext === "svg" ? 150 : undefined }).rotate();
+      const p = sharp(src, { limitInputPixels: MAX_PIXELS, density: ext === "svg" ? 150 : undefined })
+        .timeout({ seconds: SHARP_TIMEOUT_S })
+        .rotate();
       await (usePng ? p.png() : p.jpeg({ quality: 90, mozjpeg: true })).toFile(tmp);
       const out = path.join(job.workDir, "out.pdf");
       const r = await pyhelper(["img2pdf", tmp, out], { timeoutMs: 120000 });

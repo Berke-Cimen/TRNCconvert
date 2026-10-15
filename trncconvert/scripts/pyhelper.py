@@ -245,7 +245,11 @@ def unlock_pdf(src, dst, password):
         with pdf:
             if not pdf.is_encrypted:
                 raise HelperExit(EXIT_NOT_ENCRYPTED, "pdf not encrypted")
-            pdf.save(dst, encryption=False)
+            try:
+                pdf.save(dst, encryption=False)
+            except Exception as exc:
+                remove_quietly(dst)
+                raise HelperExit(EXIT_UNSUPPORTED, "pdf save failed: %s" % type(exc).__name__)
         break
     else:
         raise HelperExit(EXIT_WRONG_PASSWORD, "wrong password (%s)" % type(last_error).__name__)
@@ -319,14 +323,19 @@ def unlock_office(src, dst, password):
 def cmd_unlock(src, dst):
     password = read_password()
     kind = file_kind(src)
-    if kind == "pdf":
-        unlock_pdf(src, dst, password)
-    elif kind == "cfb":
-        unlock_office(src, dst, password)
-    elif kind == "zip":
+    if kind == "zip":
         raise HelperExit(EXIT_NOT_ENCRYPTED, "office not encrypted")
-    else:
+    if kind not in ("pdf", "cfb"):
         raise HelperExit(EXIT_UNSUPPORTED, "unknown file kind")
+    part = dst + ".part"
+    try:
+        if kind == "pdf":
+            unlock_pdf(src, part, password)
+        else:
+            unlock_office(src, part, password)
+        os.replace(part, dst)
+    finally:
+        remove_quietly(part)
 
 COMMANDS = {
     "pdf2docx": (cmd_pdf2docx, 2),

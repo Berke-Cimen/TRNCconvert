@@ -72,7 +72,7 @@ router.post("/convert", convertLimit, makeUpload(formats.allInputs()), async (re
       type: "convert", inputPath: file.path, ext, originalName: originalNameOf(req), target, quality, ip,
     });
     jobs.enqueue(job, ENGINES[engine].convert);
-    res.status(202).json(jobs.publicView(job));
+    res.status(202).json({ ...jobs.publicView(job), token: job.token });
   } catch (err) {
     discard(file);
     console.error("convert route:", err.message);
@@ -81,7 +81,8 @@ router.post("/convert", convertLimit, makeUpload(formats.allInputs()), async (re
 });
 
 router.get("/jobs/:id", (req, res) => {
-  const job = jobs.getJob(req.params.id);
+  const found = jobs.getJob(req.params.id);
+  const job = found && jobs.tokenMatches(found, req.query.t) ? found : null;
   res.set("Cache-Control", "no-store");
   if (!job) return res.status(404).json({ error: "not_found", message: "İş bulunamadı ya da süresi doldu." });
   res.json(jobs.publicView(job));
