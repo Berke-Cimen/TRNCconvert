@@ -49,6 +49,7 @@ app.use((req, res, next) => {
     "X-Frame-Options": "DENY",
     "Cross-Origin-Opener-Policy": "same-origin",
   });
+  if (req.secure) res.set("Strict-Transport-Security", "max-age=15552000");
   next();
 });
 
@@ -96,7 +97,7 @@ app.get("/sitemap.xml", (req, res) => res.type("application/xml; charset=utf-8")
 app.get("/favicon.ico", (req, res) => res.redirect(301, "/favicon.svg"));
 app.get("/index.html", (req, res) => res.redirect(301, "/"));
 
-app.get("*", (req, res, next) => {
+app.use((req, res, next) => {
   if (req.method !== "GET" && req.method !== "HEAD") return next();
   const p = req.path;
   if (p.length > 1 && p.endsWith("/")) {

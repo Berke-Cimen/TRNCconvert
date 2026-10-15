@@ -1,6 +1,6 @@
 "use strict";
 const fs = require("fs");
-const archiver = require("archiver");
+const { ZipArchive } = require("archiver");
 
 function uniqueNames(items) {
   const seen = new Map();
@@ -17,7 +17,7 @@ function uniqueNames(items) {
 function zipFiles(outPath, items) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(outPath);
-    const archive = archiver("zip", { zlib: { level: 6 } });
+    const archive = new ZipArchive({ zlib: { level: 6 } });
     output.on("close", resolve);
     archive.on("error", reject);
     archive.pipe(output);
@@ -27,7 +27,7 @@ function zipFiles(outPath, items) {
 }
 
 function streamZip(res, items, onError) {
-  const archive = archiver("zip", { zlib: { level: 6 } });
+  const archive = new ZipArchive({ zlib: { level: 6 } });
   archive.on("error", onError);
   archive.pipe(res);
   for (const it of uniqueNames(items)) archive.file(it.path, { name: it.name });
