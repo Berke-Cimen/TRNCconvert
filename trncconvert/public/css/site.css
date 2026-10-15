@@ -270,7 +270,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .options { margin-top: var(--space-4); display: grid; gap: var(--space-4); }
 .targets { border: 0; margin: 0; padding: 0; min-width: 0; }
-.targets legend, .quality label, .unlock-form label { font-weight: 600; margin-bottom: var(--space-2); padding: 0; }
+.targets legend, .quality label { font-weight: 600; margin-bottom: var(--space-2); padding: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .chip span {
@@ -312,23 +312,19 @@ button, input, select { font: inherit; color: inherit; }
 .notice-error { background: var(--error-tint); color: var(--ink); border: 1px solid var(--error); }
 .tool-note { margin-top: var(--space-3); font-size: 0.875rem; color: var(--text-2); }
 
-.unlock-file {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--space-3); align-items: center;
-  margin-top: var(--space-3); padding: 12px var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-ctrl);
-}
-.unlock-file-icon { grid-row: 1 / span 2; color: var(--text-2); }
-.unlock-file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.unlock-file-state { font-size: 0.875rem; color: var(--text-2); }
-.unlock-form { margin-top: var(--space-4); display: grid; gap: var(--space-2); }
-.password-row { display: flex; gap: var(--space-2); }
-.password-row input {
-  flex: 1; min-width: 0; min-height: 48px; padding: 0 12px; border: 1px solid var(--line-strong);
+.unlock-form { display: block; }
+.unlock-controls { margin-top: var(--space-4); display: grid; gap: 12px; justify-items: start; }
+.unlock-controls .btn-primary { justify-self: stretch; margin-top: var(--space-1); }
+.check { display: inline-flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer; font-weight: 600; }
+.check input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
+.shared-password { display: grid; gap: var(--space-2); width: 100%; }
+.shared-password label { font-weight: 600; }
+.q-password { grid-column: 1 / -1; }
+.shared-password input, .q-password input {
+  width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-ctrl); background: var(--surface); font-size: 1.0625rem;
 }
-.password-row input[aria-invalid="true"] { border-color: var(--error); }
-.field-help { font-size: 0.875rem; color: var(--text-2); }
-.unlock-form .btn-primary { margin-top: var(--space-2); }
-.unlock-result { margin-top: var(--space-4); }
+.shared-password input[aria-invalid="true"], .q-password input[aria-invalid="true"] { border-color: var(--error); }
 
 .tool-aside { display: grid; gap: var(--space-4); }
 .trust { list-style: none; display: grid; gap: 12px; }

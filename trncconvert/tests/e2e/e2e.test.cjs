@@ -280,3 +280,46 @@ test("güvenlik: çift eğik çizgili adres başka siteye yönlendirmez", async 
   assert.equal(res.status, 301);
   assert.equal(res.headers.get("location"), "/evil.example");
 });
+
+test("toplu şifre kaldırma: her dosyaya kendi şifresi, sonuçlar tek ZIP", async () => {
+  const files = [
+    ["pdf-r6-user.pdf", "Şifre123!", "Rapor.pdf"],
+    ["enc.docx", OFFICE_PW, "Sözleşme.docx"],
+    ["enc.xlsx", OFFICE_PW, "Bütçe.xlsx"],
+    ["enc.pptx", OFFICE_PW, "Sunum.pptx"],
+  ];
+  const inspected = [];
+  for (const [file, , name] of files) inspected.push((await unlock(file, null, name)).body);
+  const results = [];
+  for (let i = 0; i < files.length; i++) {
+    const r = await postJson(`/api/unlock/${inspected[i].id}`, { password: files[i][1], token: inspected[i].token });
+    assert.equal(r.status, 200, files[i][0]);
+    results.push(r.body);
+  }
+  const items = results.map((v) => { const p = v.download.url.split("/"); return { id: p[2], token: p[3] }; });
+  const res = await fetch(BASE + "/api/zip", { method: "POST", headers: { ...UA, "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
+  assert.equal(res.status, 200);
+  const zip = Buffer.from(await res.arrayBuffer());
+  assert.equal(sniffBuffer(zip), "zip");
+  const names = [];
+  let off = 0;
+  while ((off = zip.indexOf(Buffer.from("504b0102", "hex"), off)) >= 0) {
+    const len = zip.readUInt16LE(off + 28);
+    names.push(zip.subarray(off + 46, off + 46 + len).toString("utf8"));
+    off += 46 + len;
+  }
+  assert.deepEqual(names.sort(), ["Bütçe.xlsx", "Rapor.pdf", "Sunum.pptx", "Sözleşme.docx"].sort());
+});
+
+test("toplu şifre kaldırma: aynı şifre birden fazla dosyada çalışır, yanlış olan ayrı raporlanır", async () => {
+  const a = (await unlock("enc.docx")).body;
+  const b = (await unlock("enc.xlsx")).body;
+  const c = (await unlock("pdf-r6-user.pdf")).body;
+  const ra = await postJson(`/api/unlock/${a.id}`, { password: OFFICE_PW, token: a.token });
+  const rb = await postJson(`/api/unlock/${b.id}`, { password: OFFICE_PW, token: b.token });
+  const rc = await postJson(`/api/unlock/${c.id}`, { password: OFFICE_PW, token: c.token });
+  assert.equal(ra.status, 200);
+  assert.equal(rb.status, 200);
+  assert.equal(rc.status, 401);
+  assert.equal(rc.body.attemptsLeft, 2);
+});

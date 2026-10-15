@@ -548,177 +548,313 @@
   function initUnlock(root) {
     var drop = $(root, "[data-drop]");
     var input = $(root, "[data-file-input]");
-    var fileBox = $(root, "[data-unlock-file]");
-    var fileName = $(root, "[data-file-name]");
-    var fileState = $(root, "[data-file-state]");
     var form = $(root, "[data-unlock-form]");
-    var pw = $(root, "[data-password]");
-    var toggle = $(root, "[data-toggle-password]");
-    var signedWarning = $(root, "[data-signed-warning]");
+    var queueEl = $(root, "[data-queue]");
+    var controls = $(root, "[data-controls]");
+    var sameBox = $(root, "[data-same-password]");
+    var sharedWrap = $(root, "[data-shared-wrap]");
+    var sharedPw = $(root, "[data-shared-password]");
+    var showBox = $(root, "[data-show-passwords]");
     var submit = $(root, "[data-unlock-submit]");
-    var result = $(root, "[data-unlock-result]");
-    var resultText = $(root, "[data-result-text]");
-    var downloadLink = $(root, "[data-download]");
+    var after = $(root, "[data-after]");
+    var zipBtn = $(root, "[data-zip]");
     var resetBtn = $(root, "[data-reset]");
     var statusEl = $(root, "[data-status]");
     var accepted = (input.getAttribute("accept") || "").split(",").map(function (s) { return s.replace(".", ""); });
-    var jobId = null;
-    var jobToken = null;
+    var items = [];
+    var uploading = false;
     var working = false;
+    var seq = 0;
 
     function setStatus(text, isError) {
       statusEl.textContent = text || "";
       statusEl.classList.toggle("status-error", Boolean(isError));
     }
 
+    function awaiting() { return items.filter(function (it) { return it.state === "awaiting"; }); }
+    function doneItems() { return items.filter(function (it) { return it.state === "done"; }); }
+
+    function rowFor(it) {
+      seq++;
+      var li = el("li", "q-item");
+      var ic = el("span", "q-icon");
+      var name = el("span", "q-name", it.file.name);
+      name.title = it.file.name;
+      var actions = el("span", "q-actions");
+      var meta = el("span", "q-meta");
+      var pwWrap = el("div", "q-password");
+      var label = el("label", "visually-hidden", it.file.name + " dosyasının şifresi");
+      var pw = document.createElement("input");
+      pw.type = showBox.checked ? "text" : "password";
+      pw.id = "pw-" + seq;
+      label.htmlFor = pw.id;
+      pw.autocomplete = "off";
+      pw.setAttribute("autocapitalize", "off");
+      pw.setAttribute("autocorrect", "off");
+      pw.spellcheck = false;
+      pw.maxLength = 1024;
+      pw.placeholder = "Bu dosyanın şifresi";
+      pw.setAttribute("data-row-password", "");
+      pw.addEventListener("input", function () { pw.removeAttribute("aria-invalid"); });
+      pwWrap.appendChild(label);
+      pwWrap.appendChild(pw);
+      pwWrap.hidden = true;
+      li.appendChild(ic);
+      li.appendChild(name);
+      li.appendChild(actions);
+      li.appendChild(meta);
+      li.appendChild(pwWrap);
+      it.el = { li: li, icon: ic, meta: meta, actions: actions, pwWrap: pwWrap, pw: pw };
+      return li;
+    }
+
+    function render(it) {
+      var e = it.el;
+      var s = it.state;
+      e.li.className = "q-item" + (s === "done" ? " is-done" : "") + (s === "error" ? " is-error" : "");
+      e.icon.textContent = "";
+      e.icon.appendChild(icon(s === "done" ? "check" : s === "error" ? "alert" : "file"));
+      e.actions.textContent = "";
+      e.pwWrap.hidden = !(s === "awaiting" && !sameBox.checked);
+      var text = it.message || "";
+      if (s === "uploading") text = it.progress < 1 ? "Yükleniyor %" + Math.round(it.progress * 100) : "Kontrol ediliyor";
+      if (s === "waiting") text = "Sırada";
+      if (s === "working") text = "Şifre kaldırılıyor";
+      if (s === "awaiting" && !it.message) text = "Açılış şifresi gerekiyor";
+      if (it.signed && (s === "awaiting" || s === "done")) text += " Dijital imza, şifre kaldırılınca geçersiz olur.";
+      e.meta.textContent = text;
+      if (s === "done") {
+        var a = el("a", "btn btn-primary btn-small", "İndir");
+        a.href = it.download.url;
+        a.setAttribute("download", it.download.name);
+        a.setAttribute("aria-label", it.download.name + " dosyasını indir");
+        e.actions.appendChild(a);
+      } else if (!working && (s === "awaiting" || s === "info" || s === "error")) {
+        var rm = el("button", "q-remove");
+        rm.type = "button";
+        rm.setAttribute("aria-label", it.file.name + " dosyasını listeden kaldır");
+        rm.appendChild(icon("x"));
+        rm.addEventListener("click", function () { removeItem(it); });
+        e.actions.appendChild(rm);
+      }
+    }
+
+    function renderAll() { items.forEach(render); refresh(); }
+
+    function refresh() {
+      var hasAwaiting = awaiting().length > 0;
+      var busy = uploading || working;
+      controls.hidden = !hasAwaiting;
+      submit.disabled = busy;
+      sharedWrap.hidden = !sameBox.checked;
+      submit.textContent = awaiting().length > 1 ? "Şifreleri kaldır" : "Şifreyi kaldır";
+      var settled = items.length > 0 && !busy && !hasAwaiting;
+      after.hidden = !(items.length > 0 && !busy);
+      zipBtn.hidden = doneItems().length < 2;
+      drop.classList.toggle("is-compact", items.length > 0);
+      drop.hidden = busy;
+      if (settled) summarize();
+    }
+
+    function summarize() {
+      var done = doneItems().length;
+      var total = items.length;
+      if (!done) { setStatus(""); return; }
+      setStatus(done === total
+        ? (total === 1 ? "Şifre kaldırıldı. İndirme bağlantısı 10 dakika geçerlidir." : total + " dosyanın hepsinin şifresi kaldırıldı. İndirme bağlantıları 10 dakika geçerlidir.")
+        : total + " dosyadan " + done + " tanesinin şifresi kaldırıldı. Diğerlerinin açıklaması listede.");
+    }
+
+    function removeItem(it) {
+      if (working || uploading) return;
+      items = items.filter(function (x) { return x !== it; });
+      it.el.li.remove();
+      refresh();
+      if (!items.length) setStatus("");
+    }
+
     function reset() {
-      jobId = null;
-      jobToken = null;
-      working = false;
-      drop.hidden = false;
-      fileBox.hidden = true;
-      form.hidden = true;
-      result.hidden = true;
-      signedWarning.hidden = true;
-      pw.value = "";
-      pw.removeAttribute("aria-invalid");
-      submit.disabled = false;
+      items = [];
+      queueEl.textContent = "";
+      sameBox.checked = false;
+      sharedPw.value = "";
       setStatus("");
+      refresh();
     }
 
-    function showResult(view, restrictionsOnly) {
-      form.hidden = true;
-      result.hidden = false;
-      fileState.textContent = "Şifre kaldırıldı";
-      resultText.textContent = restrictionsOnly
-        ? "Dosyada yalnızca yazdırma ve kopyalama kısıtlaması vardı; kısıtlamalar kaldırıldı."
-        : "Şifre kaldırıldı. Dosya artık şifresiz açılır.";
-      downloadLink.href = view.download.url;
-      downloadLink.setAttribute("download", view.download.name);
-      setStatus("İndirme bağlantısı 10 dakika geçerlidir.");
-      downloadLink.focus();
-    }
-
-    function sendPassword(password, restrictionsOnly) {
-      working = true;
-      submit.disabled = true;
-      setStatus("Şifre kaldırılıyor.");
-      return postJson("/api/unlock/" + jobId, { password: password, token: jobToken }).then(function (r) {
-        working = false;
-        submit.disabled = false;
-        if (r.ok && r.data.status === "done") {
-          showResult(r.data, restrictionsOnly);
-          return;
-        }
+    function sendPassword(it, password) {
+      it.state = "working";
+      it.message = "";
+      render(it);
+      return postJson("/api/unlock/" + it.id, { password: password, token: it.token }).then(function (r) {
         var d = r.data || {};
-        if (r.status === 401) {
-          pw.setAttribute("aria-invalid", "true");
-          setStatus(d.message + " Kalan deneme: " + d.attemptsLeft + ".", true);
-          pw.focus();
-          pw.select();
-          return;
+        if (r.ok && d.status === "done") {
+          it.state = "done";
+          it.download = d.download;
+          it.message = it.restrictionsOnly ? "Yalnızca yazdırma/kopyalama kısıtlaması vardı; kaldırıldı." : "Şifre kaldırıldı.";
+        } else if (r.status === 401) {
+          it.state = "awaiting";
+          it.message = "Şifre yanlış. Kalan deneme: " + d.attemptsLeft + ".";
+          it.el.pw.setAttribute("aria-invalid", "true");
+        } else {
+          it.state = "error";
+          it.message = httpMessage(r.status, d);
         }
-        form.hidden = true;
-        fileState.textContent = "İşlem tamamlanamadı";
-        jobId = null;
-        result.hidden = false;
-        resultText.textContent = httpMessage(r.status, d);
-        resultText.className = "notice notice-error";
-        downloadLink.hidden = true;
-        setStatus("");
+        render(it);
       });
     }
 
-    function handleFiles(files) {
-      if (working || !files || !files.length) return;
-      var file = files[0];
-      var ext = extOf(file.name);
-      reset();
-      if (accepted.indexOf(ext) < 0) {
-        setStatus("Bu dosya türü desteklenmiyor. Desteklenenler: " + formatList(accepted) + ".", true);
-        return;
-      }
-      if (file.size > catalog.maxBytes) {
-        setStatus("Dosya 95 MB sınırını aşıyor.", true);
-        return;
-      }
-      drop.hidden = true;
-      fileBox.hidden = false;
-      fileName.textContent = file.name;
-      fileName.title = file.name;
-      fileState.textContent = "Yükleniyor";
-      working = true;
+    function inspect(it) {
+      it.state = "uploading";
+      it.progress = 0;
+      render(it);
       var fd = new FormData();
-      fd.append("name", file.name);
-      fd.append("file", file, file.name);
-      upload("/api/unlock/inspect", fd, function (p) {
-        fileState.textContent = p < 1 ? "Yükleniyor %" + Math.round(p * 100) : "Kontrol ediliyor";
-      }).then(function (r) {
-        working = false;
+      fd.append("name", it.file.name);
+      fd.append("file", it.file, it.file.name);
+      return upload("/api/unlock/inspect", fd, function (p) { it.progress = p; render(it); }).then(function (r) {
+        var d = r.data || {};
         if (!r.ok) {
-          fileState.textContent = "Yüklenemedi";
-          setStatus(httpMessage(r.status, r.data), true);
-          showRetry();
+          it.state = "error";
+          it.message = httpMessage(r.status, d);
+          render(it);
           return;
         }
-        var d = r.data;
-        if (d.state === "not_encrypted" || d.state === "unsupported") {
-          fileState.textContent = d.state === "not_encrypted" ? "Şifre yok" : "Desteklenmiyor";
-          setStatus(d.message, d.state === "unsupported");
-          showRetry();
-          return;
-        }
-        jobId = d.id;
-        jobToken = d.token;
-        signedWarning.hidden = !d.signed;
+        if (d.state === "not_encrypted") { it.state = "info"; it.message = d.message; render(it); return; }
+        if (d.state === "unsupported") { it.state = "error"; it.message = d.message; render(it); return; }
+        it.id = d.id;
+        it.token = d.token;
+        it.signed = Boolean(d.signed);
         if (d.state === "restrictions_only") {
-          fileState.textContent = "Yalnızca kısıtlama şifresi var, şifre gerekmiyor";
-          sendPassword("", true);
-          return;
+          it.restrictionsOnly = true;
+          return sendPassword(it, "");
         }
-        fileState.textContent = "Açılış şifresi gerekiyor";
-        form.hidden = false;
-        setStatus("");
-        pw.focus();
+        it.state = "awaiting";
+        it.message = "";
+        render(it);
       });
     }
 
-    function showRetry() {
-      result.hidden = false;
-      resultText.textContent = "";
-      resultText.className = "";
-      downloadLink.hidden = true;
+    function addFiles(fileList) {
+      if (uploading || working) return;
+      var files = Array.prototype.slice.call(fileList || []);
+      if (!files.length) return;
+      if (items.length && !awaiting().length) reset();
+      var problems = [];
+      var added = [];
+      files.forEach(function (file) {
+        var ext = extOf(file.name);
+        if (items.length >= catalog.maxFiles) { problems.push("En fazla " + catalog.maxFiles + " dosya eklenebilir."); return; }
+        if (accepted.indexOf(ext) < 0) { problems.push(file.name + ": desteklenmiyor. Desteklenenler: " + formatList(accepted) + "."); return; }
+        if (file.size > catalog.maxBytes) { problems.push(file.name + ": dosya 95 MB sınırını aşıyor."); return; }
+        if (file.size === 0) { problems.push(file.name + ": dosya boş."); return; }
+        var it = { file: file, ext: ext, state: "waiting", message: "" };
+        items.push(it);
+        added.push(it);
+        queueEl.appendChild(rowFor(it));
+        render(it);
+      });
+      var uniq = problems.filter(function (p, i) { return problems.indexOf(p) === i; });
+      setStatus(uniq.join(" "), uniq.length > 0);
+      if (!added.length) { refresh(); return; }
+      uploading = true;
+      refresh();
+      added.reduce(function (chain, it) {
+        return chain.then(function () { return inspect(it); });
+      }, Promise.resolve()).then(function () {
+        uploading = false;
+        renderAll();
+        var first = awaiting()[0];
+        if (first) {
+          if (!uniq.length) setStatus(awaiting().length === 1 ? "Dosyanın açılış şifresini girin." : awaiting().length + " dosya için şifre gerekiyor.");
+          (sameBox.checked ? sharedPw : first.el.pw).focus();
+        }
+      });
     }
 
-    bindDrop(drop, input, handleFiles);
+    bindDrop(drop, input, addFiles);
 
-    toggle.addEventListener("click", function () {
-      var show = pw.type === "password";
-      pw.type = show ? "text" : "password";
-      toggle.textContent = show ? "Gizle" : "Göster";
-      toggle.setAttribute("aria-pressed", show ? "true" : "false");
-      pw.focus();
+    sameBox.addEventListener("change", function () {
+      renderAll();
+      if (sameBox.checked) sharedPw.focus();
     });
 
-    pw.addEventListener("input", function () { pw.removeAttribute("aria-invalid"); });
+    showBox.addEventListener("change", function () {
+      var type = showBox.checked ? "text" : "password";
+      sharedPw.type = type;
+      items.forEach(function (it) { it.el.pw.type = type; });
+    });
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      if (working || !jobId) return;
-      if (!pw.value) {
-        setStatus("Dosyanın şifresini girin.", true);
-        pw.focus();
+      if (working || uploading) return;
+      var list = awaiting();
+      if (!list.length) return;
+      var shared = sameBox.checked;
+      if (shared && !sharedPw.value) {
+        setStatus("Ortak şifreyi girin.", true);
+        sharedPw.focus();
         return;
       }
-      sendPassword(pw.value, false);
+      var ready = list.filter(function (it) { return shared || it.el.pw.value; });
+      list.forEach(function (it) {
+        if (ready.indexOf(it) < 0) { it.message = "Şifre girilmedi."; it.el.pw.setAttribute("aria-invalid", "true"); render(it); }
+      });
+      if (!ready.length) {
+        setStatus("Dosyaların şifresini girin.", true);
+        list[0].el.pw.focus();
+        return;
+      }
+      working = true;
+      setStatus("Şifreler kaldırılıyor.");
+      renderAll();
+      ready.reduce(function (chain, it) {
+        return chain.then(function () { return sendPassword(it, shared ? sharedPw.value : it.el.pw.value); });
+      }, Promise.resolve()).then(function () {
+        working = false;
+        ready.forEach(function (it) { if (it.state !== "awaiting") it.el.pw.value = ""; });
+        renderAll();
+        var left = awaiting();
+        if (left.length) {
+          setStatus(left.length === 1 ? "Bir dosyanın şifresi yanlış ya da eksik. Düzeltip tekrar deneyin." : left.length + " dosyanın şifresi yanlış ya da eksik. Düzeltip tekrar deneyin.", true);
+          if (!sameBox.checked) { left[0].el.pw.focus(); left[0].el.pw.select(); } else { sharedPw.focus(); sharedPw.select(); }
+        }
+      });
+    });
+
+    zipBtn.addEventListener("click", function () {
+      var list = doneItems().map(function (it) {
+        var parts = it.download.url.split("/");
+        return { id: parts[2], token: parts[3] };
+      });
+      zipBtn.disabled = true;
+      setStatus("ZIP dosyası hazırlanıyor.");
+      fetch("/api/zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: list })
+      }).then(function (res) {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "trncconvert-sifresiz-dosyalar.zip";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+        setStatus("ZIP dosyası indirildi.");
+      }).catch(function () {
+        setStatus("ZIP dosyası oluşturulamadı. Dosyaları tek tek indirebilirsiniz.", true);
+      }).then(function () { zipBtn.disabled = false; });
     });
 
     resetBtn.addEventListener("click", function () {
-      downloadLink.hidden = false;
-      resultText.className = "notice notice-ok";
       reset();
       drop.focus();
     });
+
+    refresh();
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="convert"]'), initConverter);

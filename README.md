@@ -10,6 +10,7 @@ Canlı adres: https://trncconvert.com
 - Dosyalar 10 dakika içinde silinir. Hesap gerekmez. Dosya başına en fazla 95 MB, tek seferde 10 dosya.
 - Uzun süren dönüşümler Cloudflare'in 125 saniyelik sınırına takılmaz: istemci önce dosyayı yükler, sonra işin durumunu sorgular.
 - Şifre yalnızca Python yardımcısının standart girdisinden geçer. Diske yazılmaz ve kayıtlara girmez. Üç yanlış denemeden sonra dosya silinir.
+- Şifre kaldırma toplu çalışır: tek seferde 10 dosya, her dosyaya ayrı şifre ya da tek ortak şifre, sonuçlar tek tek ya da tek ZIP olarak indirilir.
 
 ## Desteklenen dönüşümler
 

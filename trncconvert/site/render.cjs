@@ -186,36 +186,31 @@ function unlockTool({ kinds }) {
   const accept = kinds.map((k) => "." + k).join(",");
   return `<section class="tool tool-unlock" data-tool="unlock" aria-label="Şifre kaldırma aracı">
   <div class="drop" data-drop tabindex="0" role="button" aria-describedby="unlock-hint">
-    <input type="file" class="visually-hidden" data-file-input accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
+    <input type="file" class="visually-hidden" data-file-input multiple accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
     <span class="drop-icon">${icon("lock")}</span>
-    <span class="drop-title">Şifreli dosyayı buraya bırakın</span>
+    <span class="drop-title">Şifreli dosyaları buraya bırakın</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
-    <span class="drop-hint" id="unlock-hint">${esc(fmtList(kinds))}. En fazla 95 MB.</span>
+    <span class="drop-hint" id="unlock-hint">${esc(fmtList(kinds))}. Dosya başına en fazla 95 MB, tek seferde 10 dosya.</span>
   </div>
-  <div class="unlock-file" data-unlock-file hidden>
-    <span class="unlock-file-icon">${icon("file")}</span>
-    <span class="unlock-file-name" data-file-name></span>
-    <span class="unlock-file-state" data-file-state></span>
-  </div>
-  <form class="unlock-form" data-unlock-form hidden novalidate>
-    <label for="unlock-password">Dosyanın şifresi</label>
-    <div class="password-row">
-      <input id="unlock-password" name="password" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="1024" aria-describedby="password-help" data-password>
-      <button type="button" class="btn btn-ghost" data-toggle-password aria-pressed="false">Göster</button>
+  <form class="unlock-form" data-unlock-form novalidate>
+    <ol class="queue" data-queue aria-label="Seçilen dosyalar"></ol>
+    <div class="unlock-controls" data-controls hidden>
+      <label class="check"><input type="checkbox" data-same-password><span>Tüm dosyalar için aynı şifreyi kullan</span></label>
+      <div class="shared-password" data-shared-wrap hidden>
+        <label for="shared-password">Ortak şifre</label>
+        <input id="shared-password" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="1024" aria-describedby="password-help" data-shared-password>
+      </div>
+      <label class="check"><input type="checkbox" data-show-passwords><span>Şifreleri göster</span></label>
+      <p class="field-help" id="password-help">Şifreler büyük/küçük harfe duyarlıdır; İ ile I farklıdır.</p>
+      <button type="submit" class="btn btn-primary" data-unlock-submit>Şifreleri kaldır</button>
     </div>
-    <p class="field-help" id="password-help">Büyük/küçük harfe duyarlıdır; İ ile I farklıdır.</p>
-    <p class="notice notice-warn" data-signed-warning hidden>Bu PDF dijital olarak imzalanmış. Şifre kaldırıldığında imza geçersiz olur; içerik değişmez.</p>
-    <button type="submit" class="btn btn-primary" data-unlock-submit>Şifreyi kaldır</button>
   </form>
-  <div class="unlock-result" data-unlock-result hidden>
-    <p class="notice notice-ok" data-result-text></p>
-    <div class="actions">
-      <a class="btn btn-primary" data-download href="#">Şifresiz dosyayı indir</a>
-      <button type="button" class="btn btn-ghost" data-reset>Başka dosya</button>
-    </div>
+  <div class="actions" data-after hidden>
+    <button type="button" class="btn btn-primary" data-zip hidden>Tümünü ZIP olarak indir</button>
+    <button type="button" class="btn btn-ghost" data-reset>Başka dosyalar</button>
   </div>
   <p class="status" data-status role="status" aria-live="polite"></p>
-  <p class="tool-note">Bu araç şifre kırmaz ya da tahmin etmez; yalnızca girdiğiniz şifreyle çalışır. Girdiğiniz şifre saklanmaz. Devam ederek dosyanın sahibi olduğunuzu ya da kullanma yetkiniz bulunduğunu onaylamış olursunuz.</p>
+  <p class="tool-note">Bu araç şifre kırmaz ya da tahmin etmez; yalnızca girdiğiniz şifreyle çalışır. Girdiğiniz şifreler saklanmaz. Devam ederek dosyaların sahibi olduğunuzu ya da kullanma yetkiniz bulunduğunu onaylamış olursunuz.</p>
   <noscript><p class="status status-error">Bu araç için JavaScript'in açık olması gerekir.</p></noscript>
 </section>`;
 }
