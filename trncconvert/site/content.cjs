@@ -8,14 +8,14 @@ module.exports = {
     intro: "Dosyanızı yükleyin, hedef biçimi seçin ve dönüştürülmüş dosyayı tarayıcınızdan indirin.",
     body: [
       "TRNCConvert, belge, görsel, ses ve video dosyalarını tarayıcı üzerinden dönüştürmek için geliştirilmiş ücretsiz bir araçtır. Hesap açmanız ya da bir program kurmanız gerekmez; site telefonda ve bilgisayarda aynı şekilde çalışır. Dosya başına 95 MB'a kadar yükleme yapabilir, tek seferde 10 dosyayı birlikte dönüştürebilirsiniz. Birden fazla sonuç olduğunda hepsini tek bir ZIP dosyası olarak indirirsiniz. Ayrıca şifresini bildiğiniz PDF, Word, Excel ve PowerPoint dosyalarından şifreyi kaldıran araçlar da bulunur.",
-      "Yüklediğiniz ve dönüştürülen dosyalar 10 dakika içinde sunucudan otomatik olarak silinir; hiçbir dosya saklanmaz veya üçüncü kişilerle paylaşılmaz. Bağlantı HTTPS ile şifrelenir. Belgeler LibreOffice, görseller sharp, ses ve video dosyaları FFmpeg ile işlenir. Proje KKTC'de geliştirilmiştir ve kaynak kodu GitHub'da herkese açık olarak yayımlanır; dosyalarınıza ne yapıldığını isteyen herkes inceleyebilir."
+      "Yüklediğiniz ve dönüştürülen dosyalar 10 dakika içinde sunucudan otomatik olarak silinir; hiçbir dosya saklanmaz veya üçüncü kişilerle paylaşılmaz. Bağlantı HTTPS ile şifrelenir. Belgeler LibreOffice, görseller sharp, ses ve video dosyaları FFmpeg ile işlenir. Proje KKTC'de geliştirilmiştir. Soru ve önerileriniz için berke_cimen@hotmail.com adresine yazabilirsiniz."
     ],
     faq: [
       { q: "TRNCConvert ücretli mi?", a: "Hayır, tüm dönüştürme ve şifre kaldırma araçları ücretsizdir. Hesap açmanız veya e-posta adresi vermeniz gerekmez." },
       { q: "Dosyalarım ne kadar süre saklanıyor?", a: "Yüklediğiniz ve dönüştürülen dosyalar 10 dakika içinde otomatik olarak silinir. Hiçbir dosya saklanmaz veya başkalarıyla paylaşılmaz." },
       { q: "Dosya boyutu ve sayısı için sınır var mı?", a: "Her dosya en fazla 95 MB olabilir ve tek seferde 10 dosya yükleyebilirsiniz. Birden fazla sonuç tek bir ZIP dosyası olarak indirilir." },
       { q: "Telefondan kullanabilir miyim?", a: "Evet. Site tarayıcıda çalışır; telefon, tablet veya bilgisayardan uygulama kurmadan kullanabilirsiniz." },
-      { q: "Kaynak koduna nereden bakabilirim?", a: "TRNCConvert açık kaynaklıdır. Kaynak kodu github.com/Berke-Cimen/TRNCconvert adresinde herkese açıktır." }
+      { q: "Size nasıl ulaşabilirim?", a: "Soru, öneri ve hata bildirimleri için berke_cimen@hotmail.com adresine e-posta gönderebilirsiniz." }
     ]
   },
 

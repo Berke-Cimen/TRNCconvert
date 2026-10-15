@@ -1,9 +1,9 @@
 "use strict";
 
-const REPO = "https://github.com/Berke-Cimen/TRNCconvert";
+const CONTACT = "berke_cimen@hotmail.com";
 
 module.exports = {
-  REPO,
+  CONTACT,
   pages: [
     {
       slug: "hakkinda",
@@ -13,7 +13,6 @@ module.exports = {
       sections: [
         { p: [
           "TRNCConvert, KKTC'de geliştirilen ücretsiz bir dosya dönüştürme sitesidir. Belge, görsel, ses ve video dosyalarını tarayıcıdan dönüştürmeyi ve şifresini bildiğiniz dosyalardan şifreyi kaldırmayı sağlar. Hesap, abonelik ya da reklam yoktur.",
-          "Sitenin kaynak kodu GitHub'da herkese açıktır. Dosyalarınıza ne yapıldığını merak eden herkes kodu inceleyebilir, hata bildirebilir ya da öneride bulunabilir.",
         ] },
         { h: "Kullanılan açık kaynak araçlar", list: [
           "Belgeler: LibreOffice",
@@ -27,7 +26,7 @@ module.exports = {
           "Yüklediğiniz dosya sunucumuzda geçici bir klasöre kaydedilir, seçtiğiniz araçla dönüştürülür ve sonuç size indirme bağlantısıyla sunulur. Yüklenen ve dönüştürülen dosyalar en geç 10 dakika içinde otomatik olarak silinir. Dosyalar başka hiçbir amaçla kullanılmaz, incelenmez ve paylaşılmaz.",
         ] },
         { h: "İletişim", p: [
-          "Hata bildirimleri ve öneriler için GitHub üzerindeki proje sayfasında bir kayıt (issue) açabilirsiniz.",
+          "Soru, öneri ve hata bildirimleri için berke_cimen@hotmail.com adresine e-posta gönderebilirsiniz.",
         ] },
       ],
     },
@@ -59,7 +58,7 @@ module.exports = {
           "Site Cloudflare üzerinden yayınlanır. Cloudflare, bağlantıyı HTTPS ile şifreler ve saldırılara karşı koruma sağlar; bu sırada teknik bağlantı verilerini kendi politikasına göre işleyebilir.",
         ] },
         { h: "Haklarınız", p: [
-          "KVKK'nın 11. maddesi ve ilgili mevzuat kapsamındaki taleplerinizi GitHub proje sayfası üzerinden iletebilirsiniz. Dosyalar en geç 10 dakika içinde silindiğinden, bu süreden sonra sizinle ilişkilendirilebilecek bir dosya ya da kayıt bulunmaz.",
+          "KVKK'nın 11. maddesi ve ilgili mevzuat kapsamındaki taleplerinizi berke_cimen@hotmail.com adresine e-posta ile iletebilirsiniz. Dosyalar en geç 10 dakika içinde silindiğinden, bu süreden sonra sizinle ilişkilendirilebilecek bir dosya ya da kayıt bulunmaz.",
         ] },
       ],
     },

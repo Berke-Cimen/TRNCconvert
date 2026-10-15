@@ -79,11 +79,11 @@ function footer() {
     <div class="footer-about">
       <a class="brand brand-footer" href="/">${LOGO}<span class="brand-name">TRNC<span>Convert</span></span></a>
       <p>Belge, görsel, ses ve video dosyaları için ücretsiz dönüştürücü. Dosyalar 10 dakika içinde sunucudan silinir.</p>
-      <p>KKTC'de geliştirildi. Kaynak kodu <a href="${legal.REPO}" rel="noopener">GitHub'da</a>.</p>
+      <p>KKTC'de geliştirildi. İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>
     </div>
     ${col("Sık kullanılanlar", popular)}
     ${col("Şifre kaldırma", unlock)}
-    ${col("Site", [["/hakkinda", "Hakkında"], ["/gizlilik", "Gizlilik ve KVKK"], ["/kullanim-sartlari", "Kullanım şartları"], [legal.REPO, "GitHub"]])}
+    ${col("Site", [["/hakkinda", "Hakkında"], ["/gizlilik", "Gizlilik ve KVKK"], ["/kullanim-sartlari", "Kullanım şartları"], ["mailto:" + legal.CONTACT, "İletişim"]])}
   </div>
 </footer>`;
 }
@@ -133,7 +133,7 @@ function trustList() {
     ["clock", "Dosyalar 10 dakika içinde sunucudan silinir."],
     ["user", "Hesap açmanız gerekmez."],
     ["weight", "Dosya başına en fazla 95 MB, tek seferde 10 dosya."],
-    ["code", "Kaynak kodu GitHub'da herkese açık."],
+    ["lock", "Bağlantı HTTPS ile şifrelenir."],
   ];
   return `<ul class="trust">${items.map(([i, t]) => `<li>${icon(i)}<span>${esc(t)}</span></li>`).join("")}</ul>`;
 }
@@ -245,7 +245,7 @@ function breadcrumb(trail) {
 
 const ORG = {
   "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: `${SITE_URL}/`,
-  logo: `${SITE_URL}/favicon.svg`, sameAs: [legal.REPO],
+  logo: `${SITE_URL}/favicon.svg`, email: legal.CONTACT,
 };
 const WEBSITE = { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, url: `${SITE_URL}/`, inLanguage: "tr", publisher: { "@id": `${SITE_URL}/#org` } };
 
@@ -375,7 +375,7 @@ function legalPage(page) {
   <div class="hero"><div class="hero-text"><h1>${esc(page.h1)}</h1></div></div>
   <article class="prose prose-legal">
     ${sections}
-    ${page.slug === "hakkinda" ? `<p><a href="${legal.REPO}" rel="noopener">GitHub'daki proje sayfası</a></p>` : ""}
+    ${page.slug === "hakkinda" ? `<p>İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>` : ""}
     <p class="updated">Son güncelleme: 15 Ekim 2026</p>
   </article>
 </div>`;
