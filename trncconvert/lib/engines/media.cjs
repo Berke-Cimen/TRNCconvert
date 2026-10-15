@@ -43,7 +43,7 @@ function buildArgs(input, output, ext, target, quality) {
     return [...head, "-vn", "-sn", "-dn", "-map", "0:a:0", "-map_metadata", "0", ...AUDIO[target](quality), ...tail];
   }
   if (target === "gif") {
-    return [...head, "-map", "0:v:0", "-t", "30", "-an", "-filter_complex", GIF_FILTER, "-loop", "0", ...tail];
+    return [...head, "-map", "0:v:0", "-t", "30", "-an", "-vf", GIF_FILTER, "-loop", "0", ...tail];
   }
   return [...head, "-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn", "-map_metadata", "0", ...VIDEO[target](quality), ...tail];
 }
