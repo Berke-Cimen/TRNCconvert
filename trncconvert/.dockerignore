@@ -6,3 +6,5 @@ uploads
 output
 data
 *.log
+__pycache__
+*.pyc

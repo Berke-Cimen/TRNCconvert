@@ -1,27 +1,3 @@
-"""TRNCConvert Python yardımcısı.
-
-Kullanım:
-  pyhelper.py pdf2docx IN OUT
-  pyhelper.py pdf2txt  IN OUT
-  pyhelper.py pdf2img  IN OUTDIR FMT BASENAME   (stdout: oluşan dosyaların JSON listesi)
-  pyhelper.py img2pdf  IN OUT
-  pyhelper.py normalize IN OUT.png             (HEIC, BMP vb. -> PNG, EXIF yönü uygulanır)
-  pyhelper.py inspect  IN                      (stdout: {"kind","state","signed"})
-  pyhelper.py unlock   IN OUT                  (stdin: {"password": "..."})
-
-Şifre yalnızca stdin'den okunur; argümanlarda, ortam değişkenlerinde veya
-çıktılarda hiçbir zaman yer almaz.
-
-Çıkış kodları:
-  0 başarılı
-  2 yanlış şifre
-  3 dosya şifreli değil
-  4 desteklenmeyen veya bozuk dosya
-  5 iç hata
-  6 sınır aşıldı (ör. sayfa sayısı)
-  8 girdi PDF'i şifreli (önce şifre kaldırılmalı)
-"""
-
 import io
 import json
 import os
@@ -42,18 +18,15 @@ RENDER_DPI = 150
 
 CFB_MAGIC = bytes.fromhex("d0cf11e0a1b11ae1")
 
-
 class HelperExit(Exception):
     def __init__(self, code, reason=""):
         super().__init__(reason)
         self.code = code
         self.reason = reason
 
-
 def head(path, n=1024):
     with open(path, "rb") as f:
         return f.read(n)
-
 
 def file_kind(path):
     h = head(path)
@@ -65,7 +38,6 @@ def file_kind(path):
         return "cfb"
     return "unknown"
 
-
 def remove_quietly(path):
     try:
         if path and os.path.exists(path):
@@ -73,23 +45,17 @@ def remove_quietly(path):
     except OSError:
         pass
 
-
-# --------------------------------------------------------------------------
-# PDF dönüşümleri (PyMuPDF / pdf2docx)
-# --------------------------------------------------------------------------
-
 def open_pdf_for_reading(path):
     import pymupdf
 
     try:
         doc = pymupdf.open(path)
-    except Exception as exc:  # bozuk veya PDF değil
+    except Exception as exc:
         raise HelperExit(EXIT_UNSUPPORTED, "open failed: %s" % type(exc).__name__)
     if doc.needs_pass:
         doc.close()
         raise HelperExit(EXIT_ENCRYPTED_INPUT, "pdf requires a password")
     return doc
-
 
 def cmd_pdf2docx(src, dst):
     open_pdf_for_reading(src).close()
@@ -104,7 +70,6 @@ def cmd_pdf2docx(src, dst):
         remove_quietly(dst)
         raise HelperExit(EXIT_INTERNAL, "pdf2docx produced no output")
 
-
 def cmd_pdf2txt(src, dst):
     doc = open_pdf_for_reading(src)
     try:
@@ -113,7 +78,6 @@ def cmd_pdf2txt(src, dst):
         doc.close()
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(parts))
-
 
 def cmd_pdf2img(src, outdir, fmt, basename):
     if fmt not in ("jpg", "png"):
@@ -139,7 +103,6 @@ def cmd_pdf2img(src, outdir, fmt, basename):
         doc.close()
     print(json.dumps(created))
 
-
 def cmd_img2pdf(src, dst):
     import pymupdf
 
@@ -154,7 +117,6 @@ def cmd_img2pdf(src, dst):
         pdf.save(dst, garbage=3, deflate=True)
     finally:
         pdf.close()
-
 
 def cmd_normalize(src, dst):
     from PIL import Image, ImageOps
@@ -173,13 +135,7 @@ def cmd_normalize(src, dst):
     except Exception as exc:
         raise HelperExit(EXIT_UNSUPPORTED, "image decode failed: %s" % type(exc).__name__)
 
-
-# --------------------------------------------------------------------------
-# Şifre inceleme ve kaldırma
-# --------------------------------------------------------------------------
-
 def pdf_has_signature(pdf):
-    """AcroForm imza alanı ya da SigFlags varsa True."""
     try:
         acro = pdf.Root.get("/AcroForm")
         if acro is None:
@@ -199,7 +155,6 @@ def pdf_has_signature(pdf):
         return False
     return False
 
-
 def inspect_pdf(path):
     import pikepdf
 
@@ -211,7 +166,6 @@ def inspect_pdf(path):
         return {"kind": "pdf", "state": "needs_password", "signed": False}
     except Exception:
         return {"kind": "pdf", "state": "unsupported", "signed": False}
-
 
 def inspect_office(path, kind):
     if kind == "zip":
@@ -228,7 +182,6 @@ def inspect_office(path, kind):
     except Exception:
         return {"kind": "unknown", "state": "unsupported", "signed": False}
 
-
 def cmd_inspect(src):
     kind = file_kind(src)
     if kind == "pdf":
@@ -238,7 +191,6 @@ def cmd_inspect(src):
     else:
         result = {"kind": "unknown", "state": "unsupported", "signed": False}
     print(json.dumps(result))
-
 
 def read_password():
     raw = sys.stdin.buffer.read(64 * 1024)
@@ -251,24 +203,14 @@ def read_password():
         raise HelperExit(EXIT_INTERNAL, "bad password type")
     return password
 
-
 def text_variants(password):
-    """Yazıldığı gibi, NFC ve NFKC biçimleri (tekrarsız)."""
     out = []
     for v in (password, unicodedata.normalize("NFC", password), unicodedata.normalize("NFKC", password)):
         if v not in out:
             out.append(v)
     return out
 
-
 def pdf_password_candidates(password):
-    """PDF şifre deneme sırası.
-
-    R6 (AES-256) şifreleri UTF-8 kullanır; eski R2-R4 şifreleri tek baytlık
-    kodlamalarla yazılmış olabilir. Türkçe Windows'ta üretilmiş dosyalarda ş, ğ
-    ve İ yalnızca cp1254 ile temsil edilebildiği için o da denenir. En sonda boş
-    şifre denenir: dosyada yalnızca kısıtlama şifresi varsa bu yeterlidir.
-    """
     import pikepdf  # noqa: F401  ('pdfdoc' codec'ini kaydeder)
 
     candidates = []
@@ -287,7 +229,6 @@ def pdf_password_candidates(password):
                 pass
     add("")
     return candidates
-
 
 def unlock_pdf(src, dst, password):
     import pikepdf
@@ -309,7 +250,6 @@ def unlock_pdf(src, dst, password):
     else:
         raise HelperExit(EXIT_WRONG_PASSWORD, "wrong password (%s)" % type(last_error).__name__)
 
-    # Doğrulama: çıktı şifresiz açılmalı.
     try:
         with pikepdf.open(dst) as check:
             if check.is_encrypted:
@@ -323,7 +263,6 @@ def unlock_pdf(src, dst, password):
         remove_quietly(dst)
         raise HelperExit(EXIT_INTERNAL, "output verify failed: %s" % type(exc).__name__)
 
-
 def verify_ooxml(path):
     with zipfile.ZipFile(path) as z:
         if "[Content_Types].xml" not in z.namelist():
@@ -331,7 +270,6 @@ def verify_ooxml(path):
         bad = z.testzip()
         if bad is not None:
             raise HelperExit(EXIT_INTERNAL, "output zip corrupt")
-
 
 def unlock_office(src, dst, password):
     import msoffcrypto
@@ -349,7 +287,6 @@ def unlock_office(src, dst, password):
     if not probe.is_encrypted():
         raise HelperExit(EXIT_NOT_ENCRYPTED, "office not encrypted")
 
-    # Excel, 'VelvetSweatshop' şifresiyle kaydedilmiş dosyaları sormadan açar.
     candidates = text_variants(password) + ["VelvetSweatshop"]
     for candidate in candidates:
         of = msoffcrypto.OfficeFile(io.BytesIO(data))
@@ -379,7 +316,6 @@ def unlock_office(src, dst, password):
         return
     raise HelperExit(EXIT_WRONG_PASSWORD, "wrong password")
 
-
 def cmd_unlock(src, dst):
     password = read_password()
     kind = file_kind(src)
@@ -392,7 +328,6 @@ def cmd_unlock(src, dst):
     else:
         raise HelperExit(EXIT_UNSUPPORTED, "unknown file kind")
 
-
 COMMANDS = {
     "pdf2docx": (cmd_pdf2docx, 2),
     "pdf2txt": (cmd_pdf2txt, 2),
@@ -402,7 +337,6 @@ COMMANDS = {
     "inspect": (cmd_inspect, 1),
     "unlock": (cmd_unlock, 2),
 }
-
 
 def main(argv):
     if len(argv) < 2 or argv[1] not in COMMANDS:
@@ -419,10 +353,9 @@ def main(argv):
     except HelperExit as exc:
         sys.stderr.write("pyhelper: %s\n" % exc.reason)
         return exc.code
-    except Exception as exc:  # şifre hiçbir zaman mesaja eklenmez
+    except Exception as exc:
         sys.stderr.write("pyhelper: internal %s\n" % type(exc).__name__)
         return EXIT_INTERNAL
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))

@@ -1,479 +1,718 @@
-// =============================================
-// TRNCConvert v2.0 — Uygulama Mantığı (Kuyruk Sistemi)
-// =============================================
+(function () {
+  "use strict";
 
-const formats = {
-    document: ["pdf", "docx", "txt", "odt"],
-    image: ["png", "jpg", "webp"],
-    audio: ["mp3", "wav"],
-    video: ["mp4", "avi", "mkv"]
-};
+  var catalogEl = document.getElementById("catalog");
+  if (!catalogEl) return;
+  var catalog = JSON.parse(catalogEl.textContent);
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-const MAX_QUEUE_SIZE = 10;
+  var LOSSY_TARGETS = ["jpg", "webp", "avif", "mp3", "m4a", "ogg", "opus", "mp4", "mov", "mkv", "webm", "avi"];
+  var POLL_MS = 1000;
 
-// Durum
-let currentCategory = "document";
-let selectedFormat = formats.document[0];
-let selectedQuality = "high";
-let fileQueue = []; // { id, file }
-let results = []; // { id, name, downloadUrl, error }
-
-// Elemanlar
-const categorySelect = document.getElementById("category");
-const qualitySelect = document.getElementById("qualitySelect");
-const qualityWrapper = document.getElementById("qualityWrapper");
-const statusEl = document.getElementById("status");
-const fileInput = document.getElementById("fileInput");
-const convertBtn = document.getElementById("convertBtn");
-const formatChips = document.getElementById("formatChips");
-const dropzone = document.getElementById("dropzone");
-const dropzoneFile = document.getElementById("dropzoneFile");
-const progressTrack = document.getElementById("progressTrack");
-const progressFill = document.getElementById("progressFill");
-
-function createIcon(classes) {
-    const i = document.createElement("i");
-    classes.split(" ").forEach(c => i.classList.add(c));
-    return i;
-}
-
-// ---- Kategori Sekmeleri ----
-document.querySelectorAll(".cat-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-        document.querySelectorAll(".cat-tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        currentCategory = tab.dataset.cat;
-        categorySelect.value = currentCategory;
-        updateFormats();
-        clearQueue();
-    });
-});
-
-// ---- Format Seçenekleri ----
-function updateFormats() {
-    const fmts = formats[currentCategory];
-    selectedFormat = fmts[0];
-    formatChips.textContent = "";
-
-    fmts.forEach((f, i) => {
-        const chip = document.createElement("button");
-        chip.className = "format-chip" + (i === 0 ? " active" : "");
-        chip.textContent = f.toUpperCase();
-        chip.addEventListener("click", () => {
-            document.querySelectorAll(".format-chip").forEach(c => c.classList.remove("active"));
-            chip.classList.add("active");
-            selectedFormat = f;
-        });
-        formatChips.appendChild(chip);
-    });
-
-    const isMedia = currentCategory === "audio" || currentCategory === "video";
-    qualityWrapper.style.display = isMedia ? "block" : "none";
-}
-
-updateFormats();
-
-// ---- Kalite Seçimi ----
-document.querySelectorAll(".q-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".q-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedQuality = btn.dataset.q;
-        qualitySelect.value = selectedQuality;
-    });
-});
-
-// ---- Sürükle & Bırak ----
-["dragenter", "dragover"].forEach(evt => {
-    dropzone.addEventListener(evt, e => {
-        e.preventDefault();
-        dropzone.classList.add("drag-over");
-    });
-});
-
-["dragleave", "drop"].forEach(evt => {
-    dropzone.addEventListener(evt, e => {
-        e.preventDefault();
-        dropzone.classList.remove("drag-over");
-    });
-});
-
-dropzone.addEventListener("drop", e => {
-    const files = e.dataTransfer.files;
-    for (let i = 0; i < files.length; i++) {
-        addToQueue(files[i]);
+  function $(root, sel) { return root.querySelector(sel); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function extOf(name) {
+    var i = name.lastIndexOf(".");
+    return i > 0 ? name.slice(i + 1).toLowerCase() : "";
+  }
+  function canon(ext) {
+    return { jpeg: "jpg", tif: "tiff", aif: "aiff", heif: "heic" }[ext] || ext;
+  }
+  function categoryOf(ext) {
+    for (var i = 0; i < catalog.categories.length; i++) {
+      if (catalog.categories[i].inputs.indexOf(ext) >= 0) return catalog.categories[i].id;
     }
-});
-
-fileInput.addEventListener("change", () => {
-    for (let i = 0; i < fileInput.files.length; i++) {
-        addToQueue(fileInput.files[i]);
-    }
-    fileInput.value = "";
-});
-
-// ---- Kuyruk Yönetimi ----
-let nextId = 1;
-
-function addToQueue(file) {
-    if (fileQueue.length >= MAX_QUEUE_SIZE) {
-        showStatus("Kuyruk dolu! Maksimum " + MAX_QUEUE_SIZE + " dosya ekleyebilirsiniz.", "error");
-        return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-        showStatus(file.name + " dosyası 100MB limitini aşıyor.", "error");
-        return;
-    }
-
-    fileQueue.push({ id: nextId++, file });
-    renderQueue();
-    statusEl.textContent = "";
-}
-
-function removeFromQueue(id) {
-    fileQueue = fileQueue.filter(f => f.id !== id);
-    renderQueue();
-}
-
-function clearQueue() {
-    fileQueue = [];
-    results = [];
-    renderQueue();
-    renderResults();
-    statusEl.textContent = "";
-}
-
-function renderQueue() {
-    const content = document.querySelector(".dropzone-content");
-    dropzoneFile.style.display = "none";
-
-    if (fileQueue.length === 0) {
-        content.style.display = "flex";
-        fileInput.style.pointerEvents = "";
-        fileInput.style.zIndex = "";
-        const existing = dropzone.querySelector(".queue-list");
-        if (existing) existing.remove();
-        return;
-    }
-
-    content.style.display = "none";
-    fileInput.style.pointerEvents = "none";
-    fileInput.style.zIndex = "-1";
-
-    let list = dropzone.querySelector(".queue-list");
-    if (!list) {
-        list = document.createElement("div");
-        list.className = "queue-list";
-        dropzone.appendChild(list);
-    }
-
-    list.textContent = "";
-
-    fileQueue.forEach((item, index) => {
-        const row = document.createElement("div");
-        row.className = "queue-item";
-
-        const info = document.createElement("div");
-        info.className = "file-info";
-
-        const orderNum = document.createElement("span");
-        orderNum.className = "queue-order";
-        orderNum.textContent = (index + 1) + ".";
-
-        const icon = document.createElement("div");
-        icon.className = "file-icon";
-        icon.appendChild(createIcon("fa-solid fa-file"));
-
-        const details = document.createElement("div");
-        details.className = "file-details";
-
-        const nameEl = document.createElement("p");
-        nameEl.className = "file-name";
-        nameEl.textContent = item.file.name;
-
-        const sizeEl = document.createElement("p");
-        sizeEl.className = "file-size";
-        sizeEl.textContent = formatFileSize(item.file.size);
-
-        details.appendChild(nameEl);
-        details.appendChild(sizeEl);
-
-        info.appendChild(orderNum);
-        info.appendChild(icon);
-        info.appendChild(details);
-
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "file-remove";
-        removeBtn.title = "Kaldır";
-        removeBtn.appendChild(createIcon("fa-solid fa-xmark"));
-        removeBtn.addEventListener("click", e => {
-            e.stopPropagation();
-            removeFromQueue(item.id);
-        });
-
-        row.appendChild(info);
-        row.appendChild(removeBtn);
-        list.appendChild(row);
+    return null;
+  }
+  function formatList(exts) {
+    var seen = {};
+    var out = [];
+    exts.forEach(function (e) {
+      var c = canon(e).toUpperCase();
+      if (!seen[c]) { seen[c] = true; out.push(c); }
     });
-
-    const bottomRow = document.createElement("div");
-    bottomRow.className = "queue-bottom";
-
-    const counter = document.createElement("span");
-    counter.className = "queue-counter";
-    counter.textContent = fileQueue.length + " / " + MAX_QUEUE_SIZE + " dosya";
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "queue-add-btn";
-    addBtn.appendChild(createIcon("fa-solid fa-plus"));
-    const addText = document.createTextNode(" Dosya Ekle");
-    addBtn.appendChild(addText);
-    addBtn.addEventListener("click", e => {
-        e.stopPropagation();
-        const tempInput = document.createElement("input");
-        tempInput.type = "file";
-        tempInput.multiple = true;
-        tempInput.addEventListener("change", () => {
-            for (let i = 0; i < tempInput.files.length; i++) {
-                addToQueue(tempInput.files[i]);
-            }
-        });
-        tempInput.click();
-    });
-
-    bottomRow.appendChild(counter);
-    bottomRow.appendChild(addBtn);
-    list.appendChild(bottomRow);
-}
-
-function formatFileSize(bytes) {
+    return out.join(", ");
+  }
+  function formatSize(bytes) {
     if (bytes < 1024) return bytes + " B";
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / 1048576).toFixed(1) + " MB";
-}
+    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + " KB";
+    return (bytes / 1048576).toFixed(1).replace(".", ",") + " MB";
+  }
+  function icon(name) {
+    var paths = {
+      file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+      check: '<path d="m5 12 5 5 9-10"/>',
+      alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>',
+      x: '<path d="M6 6l12 12M18 6 6 18"/>'
+    };
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "20");
+    svg.setAttribute("height", "20");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("class", "icon");
+    svg.innerHTML = paths[name];
+    return svg;
+  }
 
-// ---- Durum mesajları ----
-function showStatus(message, type, downloadUrl) {
-    statusEl.textContent = "";
-    const div = document.createElement("div");
-    div.className = "status-msg " + type;
+  function httpMessage(status, data) {
+    if (data && data.message) return data.message;
+    if (status === 413) return "Dosya 95 MB sınırını aşıyor.";
+    if (status === 429) return "Kısa sürede çok fazla istek gönderildi. Lütfen biraz bekleyin.";
+    if (status === 0) return "Bağlantı kesildi. İnternet bağlantınızı kontrol edip tekrar deneyin.";
+    if (status >= 500) return "Sunucuya şu anda ulaşılamıyor. Lütfen biraz sonra tekrar deneyin.";
+    return "İstek tamamlanamadı. Lütfen tekrar deneyin.";
+  }
 
-    div.appendChild(createIcon("fa-solid fa-" + (type === "success" ? "check-circle" : "circle-exclamation")));
+  function upload(url, formData, onProgress) {
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.timeout = 20 * 60 * 1000;
+      xhr.responseType = "text";
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) onProgress(e.loaded / e.total);
+        };
+      }
+      xhr.onload = function () {
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (e) { data = null; }
+        resolve({ status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300 && data !== null, data: data });
+      };
+      xhr.onerror = function () { resolve({ status: 0, ok: false, data: null }); };
+      xhr.ontimeout = function () { resolve({ status: 0, ok: false, data: { message: "Yükleme çok uzun sürdü ve durduruldu." } }); };
+      xhr.send(formData);
+    });
+  }
 
-    const span = document.createElement("span");
-    span.textContent = message;
-    div.appendChild(span);
+  function getJson(url) {
+    return fetch(url, { cache: "no-store" }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        return { status: res.status, ok: res.ok && data !== null, data: data };
+      });
+    }, function () { return { status: 0, ok: false, data: null }; });
+  }
 
-    if (downloadUrl) {
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.download = "";
-        link.textContent = "Dosyayı İndir ";
-        link.appendChild(createIcon("fa-solid fa-download"));
-        div.appendChild(link);
+  function postJson(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        return { status: res.status, ok: res.ok && data !== null, data: data };
+      });
+    }, function () { return { status: 0, ok: false, data: null }; });
+  }
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function bindDrop(drop, input, onFiles) {
+    drop.addEventListener("click", function () { input.click(); });
+    drop.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+    });
+    ["dragenter", "dragover"].forEach(function (t) {
+      drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("is-dragging"); });
+    });
+    ["dragleave", "dragend", "drop"].forEach(function (t) {
+      drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove("is-dragging"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      if (e.dataTransfer && e.dataTransfer.files) onFiles(e.dataTransfer.files);
+    });
+    input.addEventListener("change", function () {
+      onFiles(input.files);
+      input.value = "";
+    });
+  }
+
+  function initConverter(root) {
+    var drop = $(root, "[data-drop]");
+    var input = $(root, "[data-file-input]");
+    var hint = $(root, "[data-drop-hint]");
+    var queueEl = $(root, "[data-queue]");
+    var options = $(root, "[data-options]");
+    var targetsEl = $(root, "[data-targets]");
+    var qualityWrap = $(root, "[data-quality-wrap]");
+    var qualityEl = $(root, "[data-quality]");
+    var convertBtn = $(root, "[data-convert]");
+    var zipBtn = $(root, "[data-zip]");
+    var resetBtn = $(root, "[data-reset]");
+    var statusEl = $(root, "[data-status]");
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[role=tab]"));
+
+    var fixed = root.getAttribute("data-fixed") === "1";
+    var category = root.getAttribute("data-category") || "document";
+    var fromList = (root.getAttribute("data-from") || "").split(",").filter(Boolean);
+    var preset = root.getAttribute("data-to") || "";
+    var items = [];
+    var target = "";
+    var busy = false;
+    var seq = 0;
+
+    function inputsOf(cat) {
+      for (var i = 0; i < catalog.categories.length; i++) {
+        if (catalog.categories[i].id === cat) return catalog.categories[i].inputs;
+      }
+      return [];
+    }
+    function allowedExts() {
+      if (fromList.length) return fromList;
+      if (fixed) return inputsOf(category);
+      return Object.keys(catalog.targets);
+    }
+    function setStatus(text, isError) {
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("status-error", Boolean(isError));
     }
 
-    statusEl.appendChild(div);
-}
+    function selectTab(cat, focus) {
+      category = cat;
+      tabs.forEach(function (t) {
+        var on = t.getAttribute("data-category") === cat;
+        t.setAttribute("aria-selected", on ? "true" : "false");
+        t.tabIndex = on ? 0 : -1;
+        if (on && focus) t.focus();
+      });
+      hint.textContent = formatList(inputsOf(cat)) + ". Dosya başına en fazla 95 MB.";
+      input.setAttribute("accept", inputsOf(cat).map(function (e) { return "." + e; }).join(","));
+    }
 
-// ---- Sonuçları Gösterme ----
-function renderResults() {
-    statusEl.textContent = "";
-    if (results.length === 0) return;
-
-    const container = document.createElement("div");
-    container.className = "results-list";
-
-    results.forEach((r, index) => {
-        const row = document.createElement("div");
-        row.className = "result-item " + (r.error ? "result-error" : "result-success");
-
-        const info = document.createElement("span");
-        info.className = "result-name";
-        info.textContent = (index + 1) + ". " + r.name;
-        row.appendChild(info);
-
-        if (r.downloadUrl) {
-            const link = document.createElement("a");
-            link.href = r.downloadUrl;
-            link.download = "";
-            link.className = "result-download";
-            link.appendChild(createIcon("fa-solid fa-download"));
-            const linkText = document.createTextNode(" İndir");
-            link.appendChild(linkText);
-            row.appendChild(link);
-        } else if (r.error) {
-            const err = document.createElement("span");
-            err.className = "result-error-text";
-            err.textContent = r.error;
-            row.appendChild(err);
-        }
-
-        container.appendChild(row);
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () {
+        if (busy) return;
+        if (items.length && t.getAttribute("data-category") !== category) clearItems();
+        selectTab(t.getAttribute("data-category"), false);
+      });
+      t.addEventListener("keydown", function (e) {
+        var dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        var next = tabs[(i + dir + tabs.length) % tabs.length];
+        next.click();
+        next.focus();
+      });
     });
 
-    // 2+ başarılı dosya varsa ZIP indirme butonu
-    const successFiles = results.filter(r => r.downloadUrl);
-    if (successFiles.length >= 2) {
-        const zipBtn = document.createElement("button");
-        zipBtn.className = "zip-download-btn";
-        zipBtn.appendChild(createIcon("fa-solid fa-file-zipper"));
-        const zipText = document.createTextNode(" Tümünü ZIP Olarak İndir");
-        zipBtn.appendChild(zipText);
-        zipBtn.addEventListener("click", () => downloadAsZip(successFiles, zipBtn));
-        container.appendChild(zipBtn);
+    function pendingItems() { return items.filter(function (it) { return it.status === "pending"; }); }
+
+    function commonTargets() {
+      var list = pendingItems();
+      if (!list.length) return [];
+      var common = (catalog.targets[list[0].ext] || []).slice();
+      list.slice(1).forEach(function (it) {
+        var t = catalog.targets[it.ext] || [];
+        common = common.filter(function (x) { return t.indexOf(x) >= 0; });
+      });
+      return common;
     }
 
-    statusEl.appendChild(container);
-}
-
-async function downloadAsZip(files, zipBtn) {
-    if (zipBtn) {
-        zipBtn.disabled = true;
-        zipBtn.textContent = "";
-        const spinner = document.createElement("span");
-        spinner.className = "spinner";
-        zipBtn.appendChild(spinner);
-        const loadText = document.createTextNode(" ZIP hazırlanıyor...");
-        zipBtn.appendChild(loadText);
-    }
-
-    try {
-        const res = await fetch("/api/download-zip", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ files: files.map(f => f.downloadUrl) })
+    function renderTargets() {
+      var list = commonTargets();
+      targetsEl.textContent = "";
+      if (!pendingItems().length) {
+        options.hidden = true;
+        convertBtn.disabled = true;
+        return;
+      }
+      options.hidden = false;
+      if (!list.length) {
+        targetsEl.appendChild(el("p", "field-help", "Bu dosyalar için ortak bir hedef format yok. Aynı türdeki dosyaları birlikte ekleyin."));
+        convertBtn.disabled = true;
+        qualityWrap.hidden = true;
+        return;
+      }
+      if (list.indexOf(target) < 0) target = list.indexOf(preset) >= 0 ? preset : list[0];
+      seq++;
+      list.forEach(function (fmt) {
+        var label = el("label", "chip");
+        var radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = "target-" + seq;
+        radio.value = fmt;
+        radio.checked = fmt === target;
+        radio.addEventListener("change", function () {
+          target = fmt;
+          updateQuality();
         });
+        var span = el("span", null, fmt.toUpperCase());
+        span.title = catalog.labels[fmt] || fmt.toUpperCase();
+        label.appendChild(radio);
+        label.appendChild(span);
+        targetsEl.appendChild(label);
+      });
+      updateQuality();
+      convertBtn.disabled = busy;
+    }
 
-        if (!res.ok) {
-            let msg = "ZIP oluşturulamadı";
-            try {
-                const errData = await res.json();
-                if (errData.error) msg = errData.error;
-            } catch (_) {}
-            throw new Error(msg);
+    function updateQuality() {
+      qualityWrap.hidden = LOSSY_TARGETS.indexOf(target) < 0;
+    }
+
+    function rowFor(it) {
+      var li = el("li", "q-item");
+      var ic = el("span", "q-icon");
+      ic.appendChild(icon("file"));
+      var name = el("span", "q-name", it.file.name);
+      name.title = it.file.name;
+      var meta = el("span", "q-meta");
+      var actions = el("span", "q-actions");
+      var bar = el("div", "q-bar");
+      bar.appendChild(el("span"));
+      bar.hidden = true;
+      li.appendChild(ic);
+      li.appendChild(name);
+      li.appendChild(actions);
+      li.appendChild(meta);
+      li.appendChild(bar);
+      it.el = { li: li, icon: ic, meta: meta, actions: actions, bar: bar };
+      return li;
+    }
+
+    function setBar(it, fraction) {
+      var bar = it.el.bar;
+      if (fraction === null) { bar.hidden = true; return; }
+      bar.hidden = false;
+      if (fraction === "indeterminate") {
+        bar.classList.add("is-indeterminate");
+        bar.firstChild.style.width = "";
+        bar.setAttribute("aria-hidden", "true");
+        return;
+      }
+      bar.classList.remove("is-indeterminate");
+      bar.firstChild.style.width = Math.round(fraction * 100) + "%";
+    }
+
+    function renderItem(it) {
+      var e = it.el;
+      var size = formatSize(it.file.size);
+      e.li.className = "q-item" + (it.status === "done" ? " is-done" : "") + (it.status === "error" ? " is-error" : "");
+      e.actions.textContent = "";
+      e.icon.textContent = "";
+      e.icon.appendChild(icon(it.status === "done" ? "check" : it.status === "error" ? "alert" : "file"));
+
+      if (it.status === "pending") {
+        e.meta.textContent = size + ", " + canon(it.ext).toUpperCase();
+        var rm = el("button", "q-remove");
+        rm.type = "button";
+        rm.setAttribute("aria-label", it.file.name + " dosyasını listeden kaldır");
+        rm.appendChild(icon("x"));
+        rm.addEventListener("click", function () { removeItem(it); });
+        e.actions.appendChild(rm);
+        setBar(it, null);
+      } else if (it.status === "uploading") {
+        e.meta.textContent = "Yükleniyor %" + Math.round(it.progress * 100);
+        setBar(it, it.progress);
+      } else if (it.status === "queued") {
+        e.meta.textContent = it.position > 1 ? "Sırada, " + it.position + ". sırada bekliyor" : "Sırada";
+        setBar(it, "indeterminate");
+      } else if (it.status === "running") {
+        e.meta.textContent = it.progress != null ? "Dönüştürülüyor %" + it.progress : "Dönüştürülüyor";
+        setBar(it, it.progress != null ? it.progress / 100 : "indeterminate");
+      } else if (it.status === "done") {
+        e.meta.textContent = "Hazır, " + formatSize(it.download.size);
+        var a = el("a", "btn btn-primary btn-small", "İndir");
+        a.href = it.download.url;
+        a.setAttribute("download", it.download.name);
+        a.setAttribute("aria-label", it.download.name + " dosyasını indir");
+        e.actions.appendChild(a);
+        setBar(it, null);
+      } else if (it.status === "error") {
+        e.meta.textContent = it.error;
+        setBar(it, null);
+      }
+    }
+
+    function removeItem(it) {
+      items = items.filter(function (x) { return x !== it; });
+      it.el.li.remove();
+      afterChange();
+    }
+
+    function clearItems() {
+      items = [];
+      queueEl.textContent = "";
+      afterChange();
+      setStatus("");
+    }
+
+    function afterChange() {
+      drop.classList.toggle("is-compact", items.length > 0);
+      renderTargets();
+      var finished = items.length > 0 && items.every(function (it) { return it.status === "done" || it.status === "error"; });
+      var doneCount = items.filter(function (it) { return it.status === "done"; }).length;
+      zipBtn.hidden = !(finished && doneCount >= 2);
+      resetBtn.hidden = !(finished && !busy);
+      convertBtn.hidden = finished;
+    }
+
+    function addFiles(fileList) {
+      if (busy) return;
+      var files = Array.prototype.slice.call(fileList || []);
+      if (!files.length) return;
+      if (items.length && items.every(function (it) { return it.status !== "pending"; })) clearItems();
+      var allowed = allowedExts();
+      var problems = [];
+      files.forEach(function (file) {
+        var ext = extOf(file.name);
+        if (items.length >= catalog.maxFiles) {
+          problems.push("En fazla " + catalog.maxFiles + " dosya eklenebilir.");
+          return;
         }
+        if (allowed.indexOf(ext) < 0 || !catalog.targets[ext]) {
+          problems.push(file.name + ": bu dosya türü burada desteklenmiyor.");
+          return;
+        }
+        if (file.size > catalog.maxBytes) {
+          problems.push(file.name + ": dosya 95 MB sınırını aşıyor.");
+          return;
+        }
+        if (file.size === 0) {
+          problems.push(file.name + ": dosya boş.");
+          return;
+        }
+        if (!fixed && tabs.length && !items.length) {
+          var cat = categoryOf(ext);
+          if (cat && cat !== category) selectTab(cat, false);
+        }
+        var it = { file: file, ext: ext, status: "pending", progress: 0 };
+        items.push(it);
+        queueEl.appendChild(rowFor(it));
+        renderItem(it);
+      });
+      afterChange();
+      var uniq = problems.filter(function (p, i) { return problems.indexOf(p) === i; });
+      setStatus(uniq.join(" "), uniq.length > 0);
+      if (!uniq.length && items.length) setStatus(items.length + " dosya eklendi.");
+    }
 
-        const blob = await res.blob();
-        if (blob.size === 0) throw new Error("Boş ZIP dosyası");
+    bindDrop(drop, input, addFiles);
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+    function pollJob(it) {
+      return getJson("/api/jobs/" + it.jobId).then(function (r) {
+        if (r.status === 404) {
+          it.status = "error";
+          it.error = "İşin süresi doldu. Lütfen dosyayı yeniden yükleyin.";
+          renderItem(it);
+          return;
+        }
+        if (!r.ok) {
+          it.failures = (it.failures || 0) + 1;
+          if (it.failures > 10) {
+            it.status = "error";
+            it.error = httpMessage(r.status, r.data);
+            renderItem(it);
+            return;
+          }
+          return wait(POLL_MS * 2).then(function () { return pollJob(it); });
+        }
+        it.failures = 0;
+        var d = r.data;
+        if (d.status === "done") {
+          it.status = "done";
+          it.download = d.download;
+          renderItem(it);
+          return;
+        }
+        if (d.status === "error") {
+          it.status = "error";
+          it.error = (d.error && d.error.message) || "Dönüştürme tamamlanamadı.";
+          renderItem(it);
+          return;
+        }
+        it.status = d.status;
+        it.position = d.position;
+        it.progress = d.progress != null ? d.progress : null;
+        renderItem(it);
+        return wait(POLL_MS).then(function () { return pollJob(it); });
+      });
+    }
+
+    function sendItem(it) {
+      var fd = new FormData();
+      fd.append("name", it.file.name);
+      fd.append("target", target);
+      fd.append("quality", qualityEl.value);
+      fd.append("file", it.file, it.file.name);
+      it.status = "uploading";
+      it.progress = 0;
+      renderItem(it);
+      return upload("/api/convert", fd, function (p) {
+        it.progress = p;
+        renderItem(it);
+      }).then(function (r) {
+        if (!r.ok) {
+          it.status = "error";
+          it.error = httpMessage(r.status, r.data);
+          renderItem(it);
+          return null;
+        }
+        it.jobId = r.data.id;
+        it.status = r.data.status;
+        it.position = r.data.position;
+        it.progress = null;
+        renderItem(it);
+        return pollJob(it);
+      });
+    }
+
+    convertBtn.addEventListener("click", function () {
+      var list = pendingItems();
+      if (!list.length || !target || busy) return;
+      busy = true;
+      convertBtn.disabled = true;
+      convertBtn.textContent = "Dönüştürülüyor";
+      options.hidden = true;
+      drop.hidden = true;
+      tabs.forEach(function (t) { t.disabled = true; });
+      setStatus("Dosyalar yükleniyor ve dönüştürülüyor. Bu sayfayı açık tutun.");
+      var polls = [];
+      list.reduce(function (chain, it) {
+        return chain.then(function () {
+          var p = sendItem(it);
+          polls.push(p);
+          return p.then(null, function () {});
+        }).then(null, function () {});
+      }, Promise.resolve()).then(function () {
+        return Promise.all(polls.map(function (p) { return p.then(null, function () {}); }));
+      }).then(function () {
+        busy = false;
+        convertBtn.textContent = "Dönüştür";
+        drop.hidden = false;
+        tabs.forEach(function (t) { t.disabled = false; });
+        var done = items.filter(function (it) { return it.status === "done"; }).length;
+        var total = items.length;
+        afterChange();
+        if (done === total) {
+          setStatus(total === 1 ? "Dosyanız hazır. İndirme bağlantısı 10 dakika geçerlidir." : total + " dosyanın hepsi hazır. İndirme bağlantıları 10 dakika geçerlidir.");
+        } else {
+          setStatus(total + " dosyadan " + done + " tanesi dönüştürüldü. Hata alan dosyaların açıklaması listede.", done === 0);
+        }
+      });
+    });
+
+    zipBtn.addEventListener("click", function () {
+      var list = items.filter(function (it) { return it.status === "done"; }).map(function (it) {
+        var parts = it.download.url.split("/");
+        return { id: parts[2], token: parts[3] };
+      });
+      zipBtn.disabled = true;
+      setStatus("ZIP dosyası hazırlanıyor.");
+      fetch("/api/zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: list })
+      }).then(function (res) {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
         a.href = url;
-        a.download = "trncconvert-files.zip";
-        a.style.display = "none";
+        a.download = "trncconvert-dosyalar.zip";
         document.body.appendChild(a);
         a.click();
-
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 1000);
-
-    } catch (e) {
-        const errDiv = document.createElement("div");
-        errDiv.className = "status-msg error";
-        errDiv.appendChild(createIcon("fa-solid fa-circle-exclamation"));
-        const errSpan = document.createElement("span");
-        errSpan.textContent = "ZIP hatası: " + e.message;
-        errDiv.appendChild(errSpan);
-        statusEl.appendChild(errDiv);
-    } finally {
-        if (zipBtn) {
-            zipBtn.disabled = false;
-            zipBtn.textContent = "";
-            zipBtn.appendChild(createIcon("fa-solid fa-file-zipper"));
-            const resetText = document.createTextNode(" Tümünü ZIP Olarak İndir");
-            zipBtn.appendChild(resetText);
-        }
-    }
-}
-
-// ---- Dönüştürme (Kuyruk İşleme) ----
-convertBtn.addEventListener("click", async () => {
-    if (fileQueue.length === 0) {
-        showStatus("Lütfen en az bir dosya ekleyin.", "error");
-        return;
-    }
-
-    setLoading(true);
-    results = [];
-    progressTrack.style.display = "block";
-    progressFill.style.width = "0%";
-    statusEl.textContent = "";
-
-    const total = fileQueue.length;
-
-    for (let i = 0; i < total; i++) {
-        const item = fileQueue[i];
-        progressFill.style.width = Math.round((i / total) * 100) + "%";
-
-        try {
-            const result = await convertFile(item.file);
-            results.push({
-                id: item.id,
-                name: item.file.name,
-                downloadUrl: result.downloadUrl || null,
-                error: result.error || null
-            });
-        } catch (e) {
-            results.push({
-                id: item.id,
-                name: item.file.name,
-                downloadUrl: null,
-                error: e.message || "Bilinmeyen hata"
-            });
-        }
-
-        renderResults();
-    }
-
-    progressFill.style.width = "100%";
-    setTimeout(() => { progressTrack.style.display = "none"; }, 500);
-
-    fileQueue = [];
-    renderQueue();
-    setLoading(false);
-});
-
-function convertFile(file) {
-    return new Promise((resolve, reject) => {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("format", selectedFormat);
-
-        if (currentCategory === "audio" || currentCategory === "video") {
-            fd.append("quality", selectedQuality);
-        }
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/" + currentCategory);
-
-        xhr.onload = () => {
-            let data;
-            try {
-                data = JSON.parse(xhr.responseText);
-            } catch (e) {
-                reject(new Error("Geçersiz sunucu yanıtı"));
-                return;
-            }
-
-            if (data.success) {
-                resolve({ downloadUrl: data.downloadUrl });
-            } else {
-                resolve({ error: data.error });
-            }
-        };
-
-        xhr.onerror = () => reject(new Error("Ağ hatası"));
-        xhr.send(fd);
+        setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+        setStatus("ZIP dosyası indirildi.");
+      }).catch(function () {
+        setStatus("ZIP dosyası oluşturulamadı. Dosyaları tek tek indirebilirsiniz.", true);
+      }).then(function () { zipBtn.disabled = false; });
     });
-}
 
-function setLoading(loading) {
-    convertBtn.disabled = loading;
-    document.querySelector(".convert-btn-text").style.display = loading ? "none" : "flex";
-    document.querySelector(".convert-btn-loading").style.display = loading ? "flex" : "none";
-}
+    resetBtn.addEventListener("click", function () {
+      clearItems();
+      drop.focus();
+    });
+
+    if (tabs.length) selectTab(category, false);
+    afterChange();
+  }
+
+  function initUnlock(root) {
+    var drop = $(root, "[data-drop]");
+    var input = $(root, "[data-file-input]");
+    var fileBox = $(root, "[data-unlock-file]");
+    var fileName = $(root, "[data-file-name]");
+    var fileState = $(root, "[data-file-state]");
+    var form = $(root, "[data-unlock-form]");
+    var pw = $(root, "[data-password]");
+    var toggle = $(root, "[data-toggle-password]");
+    var signedWarning = $(root, "[data-signed-warning]");
+    var submit = $(root, "[data-unlock-submit]");
+    var result = $(root, "[data-unlock-result]");
+    var resultText = $(root, "[data-result-text]");
+    var downloadLink = $(root, "[data-download]");
+    var resetBtn = $(root, "[data-reset]");
+    var statusEl = $(root, "[data-status]");
+    var accepted = (input.getAttribute("accept") || "").split(",").map(function (s) { return s.replace(".", ""); });
+    var jobId = null;
+    var working = false;
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("status-error", Boolean(isError));
+    }
+
+    function reset() {
+      jobId = null;
+      working = false;
+      drop.hidden = false;
+      fileBox.hidden = true;
+      form.hidden = true;
+      result.hidden = true;
+      signedWarning.hidden = true;
+      pw.value = "";
+      pw.removeAttribute("aria-invalid");
+      submit.disabled = false;
+      setStatus("");
+    }
+
+    function showResult(view, restrictionsOnly) {
+      form.hidden = true;
+      result.hidden = false;
+      fileState.textContent = "Şifre kaldırıldı";
+      resultText.textContent = restrictionsOnly
+        ? "Dosyada yalnızca yazdırma ve kopyalama kısıtlaması vardı; kısıtlamalar kaldırıldı."
+        : "Şifre kaldırıldı. Dosya artık şifresiz açılır.";
+      downloadLink.href = view.download.url;
+      downloadLink.setAttribute("download", view.download.name);
+      setStatus("İndirme bağlantısı 10 dakika geçerlidir.");
+      downloadLink.focus();
+    }
+
+    function sendPassword(password, restrictionsOnly) {
+      working = true;
+      submit.disabled = true;
+      setStatus("Şifre kaldırılıyor.");
+      return postJson("/api/unlock/" + jobId, { password: password }).then(function (r) {
+        working = false;
+        submit.disabled = false;
+        if (r.ok && r.data.status === "done") {
+          showResult(r.data, restrictionsOnly);
+          return;
+        }
+        var d = r.data || {};
+        if (r.status === 401) {
+          pw.setAttribute("aria-invalid", "true");
+          setStatus(d.message + " Kalan deneme: " + d.attemptsLeft + ".", true);
+          pw.focus();
+          pw.select();
+          return;
+        }
+        form.hidden = true;
+        fileState.textContent = "İşlem tamamlanamadı";
+        jobId = null;
+        result.hidden = false;
+        resultText.textContent = httpMessage(r.status, d);
+        resultText.className = "notice notice-error";
+        downloadLink.hidden = true;
+        setStatus("");
+      });
+    }
+
+    function handleFiles(files) {
+      if (working || !files || !files.length) return;
+      var file = files[0];
+      var ext = extOf(file.name);
+      reset();
+      if (accepted.indexOf(ext) < 0) {
+        setStatus("Bu dosya türü desteklenmiyor. Desteklenenler: " + formatList(accepted) + ".", true);
+        return;
+      }
+      if (file.size > catalog.maxBytes) {
+        setStatus("Dosya 95 MB sınırını aşıyor.", true);
+        return;
+      }
+      drop.hidden = true;
+      fileBox.hidden = false;
+      fileName.textContent = file.name;
+      fileName.title = file.name;
+      fileState.textContent = "Yükleniyor";
+      working = true;
+      var fd = new FormData();
+      fd.append("name", file.name);
+      fd.append("file", file, file.name);
+      upload("/api/unlock/inspect", fd, function (p) {
+        fileState.textContent = p < 1 ? "Yükleniyor %" + Math.round(p * 100) : "Kontrol ediliyor";
+      }).then(function (r) {
+        working = false;
+        if (!r.ok) {
+          fileState.textContent = "Yüklenemedi";
+          setStatus(httpMessage(r.status, r.data), true);
+          showRetry();
+          return;
+        }
+        var d = r.data;
+        if (d.state === "not_encrypted" || d.state === "unsupported") {
+          fileState.textContent = d.state === "not_encrypted" ? "Şifre yok" : "Desteklenmiyor";
+          setStatus(d.message, d.state === "unsupported");
+          showRetry();
+          return;
+        }
+        jobId = d.id;
+        signedWarning.hidden = !d.signed;
+        if (d.state === "restrictions_only") {
+          fileState.textContent = "Yalnızca kısıtlama şifresi var, şifre gerekmiyor";
+          sendPassword("", true);
+          return;
+        }
+        fileState.textContent = "Açılış şifresi gerekiyor";
+        form.hidden = false;
+        setStatus("");
+        pw.focus();
+      });
+    }
+
+    function showRetry() {
+      result.hidden = false;
+      resultText.textContent = "";
+      resultText.className = "";
+      downloadLink.hidden = true;
+    }
+
+    bindDrop(drop, input, handleFiles);
+
+    toggle.addEventListener("click", function () {
+      var show = pw.type === "password";
+      pw.type = show ? "text" : "password";
+      toggle.textContent = show ? "Gizle" : "Göster";
+      toggle.setAttribute("aria-pressed", show ? "true" : "false");
+      pw.focus();
+    });
+
+    pw.addEventListener("input", function () { pw.removeAttribute("aria-invalid"); });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (working || !jobId) return;
+      if (!pw.value) {
+        setStatus("Dosyanın şifresini girin.", true);
+        pw.focus();
+        return;
+      }
+      sendPassword(pw.value, false);
+    });
+
+    resetBtn.addEventListener("click", function () {
+      downloadLink.hidden = false;
+      resultText.className = "notice notice-ok";
+      reset();
+      drop.focus();
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tool="convert"]'), initConverter);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tool="unlock"]'), initUnlock);
+})();

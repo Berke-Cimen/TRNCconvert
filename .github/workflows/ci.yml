@@ -1,0 +1,64 @@
+name: Docker build ve testler
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kök Dockerfile ile imaj oluştur
+        run: docker build -t trncconvert:ci .
+
+      - name: trncconvert/Dockerfile ile imaj oluştur
+        run: docker build -t trncconvert:ci-inner trncconvert
+
+      - name: Konteyneri başlat
+        run: |
+          docker run -d --name app -p 3000:3000 \
+            -e RATE_LIMIT_SCALE=100 \
+            -v "$PWD/trncconvert/tests:/app/tests:ro" \
+            trncconvert:ci
+
+      - name: Sağlık kontrolünü bekle
+        run: |
+          for i in $(seq 1 90); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' app)
+            if [ "$status" = "healthy" ]; then echo "healthy"; exit 0; fi
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: Araç sürümleri
+        run: |
+          docker exec app node --version
+          docker exec app soffice --version
+          docker exec app ffmpeg -hide_banner -version | head -1
+          docker exec app python3 -c "import pikepdf, msoffcrypto, pymupdf, pdf2docx, PIL, pillow_heif; print('pikepdf', pikepdf.__version__, 'pymupdf', pymupdf.__version__, 'pillow', PIL.__version__)"
+          docker exec app id
+
+      - name: Test dosyalarını üret
+        run: docker exec app python3 -I /app/tests/make_fixtures.py /tmp/fx
+
+      - name: Birim testleri
+        run: docker exec -e FIXTURES=/tmp/fx app node --test "tests/unit/*.test.cjs"
+
+      - name: Uçtan uca testler
+        run: docker exec -e FIXTURES=/tmp/fx -e BASE_URL=http://localhost:3000 app node --test --test-reporter=spec tests/e2e/e2e.test.cjs
+
+      - name: Dışarıdan erişim
+        run: |
+          curl -fsS http://localhost:3000/health
+          curl -fsS -A "Mozilla/5.0" http://localhost:3000/sitemap.xml | head -5
+          curl -fsS -o /dev/null -w "%{http_code}\n" -A "Mozilla/5.0" http://localhost:3000/pdf-sifre-kaldirma
+
+      - name: Konteyner kayıtları
+        if: always()
+        run: docker logs app

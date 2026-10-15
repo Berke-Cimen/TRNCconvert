@@ -1,7 +1,4 @@
 "use strict";
-// scripts/pyhelper.py testleri. Gerekenler:
-//   PYTHON   : pikepdf, msoffcrypto-tool, PyMuPDF, pdf2docx, Pillow, pillow-heif kurulu Python (varsayılan python3)
-//   FIXTURES : tests/make_fixtures.py çıktısı (varsayılan tests/.fixtures)
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");

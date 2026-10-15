@@ -1,5 +1,4 @@
 "use strict";
-// Format kataloğu: sunucu doğrulaması ve istemci arayüzü için tek doğruluk kaynağı.
 
 const MAX_BYTES = 95 * 1024 * 1024;
 const MAX_FILES = 10;
@@ -37,7 +36,6 @@ const CATEGORIES = [
 
 const UNLOCKABLE = ["pdf", "docx", "xlsx", "pptx"];
 
-// Aynı formatın farklı yazımları.
 const CANON = { jpeg: "jpg", tif: "tiff", aif: "aiff", heif: "heic" };
 const canon = (ext) => CANON[ext] || ext;
 
@@ -52,7 +50,6 @@ const LABELS = {
   webm: "WebM", avi: "AVI", wmv: "WMV", m4v: "M4V", "3gp": "3GP",
 };
 
-// Çıktı uzantısı başına MIME türü (indirme için).
 const MIME = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

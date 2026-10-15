@@ -1,188 +1,142 @@
+"use strict";
 const express = require("express");
 const path = require("path");
-const fs = require('fs');
-const archiver = require("archiver");
+const fs = require("fs");
+const crypto = require("crypto");
 
-const documentRoute = require("./routes/document.cjs");
-const imageRoute = require("./routes/image.cjs");
-const audioRoute = require("./routes/audio.cjs");
-const videoRoute = require("./routes/video.cjs");
+const jobs = require("./lib/jobs.cjs");
+const { UPLOAD_DIR } = require("./lib/upload.cjs");
+const api = require("./routes/api.cjs");
+const unlock = require("./routes/unlock.cjs");
+const site = require("./site/render.cjs");
 
-// ---- Dizinleri oluştur ----
-const DATA_DIR = path.join(__dirname, "data");
-const UPLOADS_DIR = path.join(__dirname, "uploads");
-const OUTPUT_DIR = path.join(__dirname, "output");
-[DATA_DIR, UPLOADS_DIR, OUTPUT_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
+const PORT = Number(process.env.PORT) || 3000;
+const PUBLIC_DIR = path.join(__dirname, "public");
+const CANONICAL_HOST = new URL(site.SITE_URL).host;
 
 const app = express();
-app.set("trust proxy", 1);
-const PORT = process.env.PORT || 3000;
+app.disable("x-powered-by");
+app.set("trust proxy", "loopback, linklocal, uniquelocal");
 
-// ---- Sağlık kontrolü (botGuard'dan önce) ----
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
+app.get("/health", (req, res) => res.type("text/plain").send("OK"));
+
+app.use((req, res, next) => {
+  const host = req.get("host") || "";
+  if (host.toLowerCase() === "www." + CANONICAL_HOST) {
+    return res.redirect(301, site.SITE_URL + req.originalUrl);
+  }
+  next();
 });
 
-app.get('/favicon.ico', (req, res) => {
-    res.status(204).end();
-});
-
-app.use(express.json({ limit: '100kb' }));
-
-// ---- Erişim günlüğü (asenkron, event loop'u bloklamaz) ----
-const ACCESS_LOG_FILE = path.join(__dirname, 'data', 'accessLog.json');
-if (!fs.existsSync(ACCESS_LOG_FILE)) {
-    fs.writeFileSync(ACCESS_LOG_FILE, '[]');
-}
-
-let logBuffer = [];
-let logFlushTimer = null;
-
-const logAccess = (req, status, details = "") => {
-    logBuffer.push({
-        ip: req.ip || req.connection.remoteAddress,
-        method: req.method,
-        url: req.originalUrl,
-        userAgent: req.get('User-Agent') || 'Unknown',
-        timestamp: new Date().toISOString(),
-        status: status,
-        details: details
-    });
-
-    if (!logFlushTimer) {
-        logFlushTimer = setTimeout(flushLogs, 5000);
-    }
-};
-
-function flushLogs() {
-    logFlushTimer = null;
-    if (logBuffer.length === 0) return;
-    const entries = logBuffer.splice(0);
-    try {
-        let logs = [];
-        if (fs.existsSync(ACCESS_LOG_FILE)) {
-            logs = JSON.parse(fs.readFileSync(ACCESS_LOG_FILE, 'utf8'));
-        }
-        logs = entries.concat(logs);
-        if (logs.length > 500) logs = logs.slice(0, 500);
-        fs.writeFileSync(ACCESS_LOG_FILE, JSON.stringify(logs, null, 2));
-    } catch (e) {
-        console.error("Günlük hatası:", e);
-    }
-}
-
-// ---- Bot koruması ----
-const botGuard = (req, res, next) => {
-    if (req.path === '/health' || req.path === '/favicon.ico') return next();
-
-    const ua = (req.get('User-Agent') || '').toLowerCase();
-    const blocked = ['wget', 'curl', 'python', 'postman', 'httpclient', 'axios'];
-    if (blocked.some(b => ua.includes(b))) {
-        logAccess(req, 403, "Bot Engellendi: " + ua);
-        return res.status(403).send('Erişim Engellendi');
-    }
-    next();
-};
-app.use(botGuard);
-
-// ---- Statik dosyalar ----
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/output", express.static(path.join(__dirname, "output")));
-app.use("/foto", express.static(path.join(__dirname, "foto")));
-
-// ---- API rotaları ----
-app.use("/api/document", documentRoute);
-app.use("/api/image", imageRoute);
-app.use("/api/audio", audioRoute);
-app.use("/api/video", videoRoute);
-
-// ---- ZIP indirme ----
-app.post("/api/download-zip", (req, res) => {
-  const files = req.body.files;
-  if (!Array.isArray(files) || files.length === 0) {
-    return res.status(400).json({ error: "Dosya listesi boş." });
-  }
-
-  const outputDir = path.join(__dirname, "output");
-  const validFiles = files
-    .map(f => {
-      if (typeof f !== 'string') return null;
-      const name = path.basename(f);
-      const full = path.join(outputDir, name);
-      if (!full.startsWith(outputDir) || !fs.existsSync(full)) return null;
-      return { name, full };
-    })
-    .filter(Boolean);
-
-  if (validFiles.length === 0) {
-    return res.status(404).json({ error: "Geçerli dosya bulunamadı." });
-  }
-
-  res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", "attachment; filename=trncconvert-files.zip");
-
-  const archive = archiver("zip", { zlib: { level: 5 } });
-  archive.on("error", (err) => {
-    console.error("Archiver hatası:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "ZIP oluşturma hatası." });
-    } else {
-      res.end();
-    }
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+app.use((req, res, next) => {
+  res.set({
+    "Content-Security-Policy": CSP,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+    "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
   });
-  archive.pipe(res);
-
-  for (const f of validFiles) {
-    archive.file(f.full, { name: f.name });
-  }
-
-  archive.finalize();
+  next();
 });
 
-// ---- Express hata yakalayıcı (catch-all) ----
+const BLOCKED_UA = ["wget", "curl", "python-requests", "postman", "httpclient", "axios"];
+app.use("/api", (req, res, next) => {
+  const ua = (req.get("user-agent") || "").toLowerCase();
+  if (BLOCKED_UA.some((b) => ua.includes(b))) return res.status(403).json({ error: "forbidden", message: "Erişim engellendi." });
+  next();
+});
+
+function fileHash(rel) {
+  try { return crypto.createHash("sha1").update(fs.readFileSync(path.join(PUBLIC_DIR, rel))).digest("hex").slice(0, 10); } catch (_) { return "0"; }
+}
+site.setAssetVersion(crypto.createHash("sha1")
+  .update(["css/site.css", "js/app.js", "js/theme.js"].map(fileHash).join(":")).digest("hex").slice(0, 10));
+
+const FONT_DIRS = [
+  path.dirname(require.resolve("@fontsource-variable/source-sans-3/package.json")),
+  path.dirname(require.resolve("@fontsource-variable/bricolage-grotesque/package.json")),
+].map((d) => path.join(d, "files"));
+for (const dir of FONT_DIRS) {
+  app.use("/fonts", express.static(dir, { immutable: true, maxAge: "365d", index: false, fallthrough: true }));
+}
+app.use(express.static(PUBLIC_DIR, {
+  index: false,
+  maxAge: "7d",
+  setHeaders: (res, p) => { if (p.endsWith("favicon.svg")) res.set("Cache-Control", "public, max-age=86400"); },
+}));
+
+app.use("/api/unlock", unlock.router);
+app.use("/api", api.router);
+app.get("/dl/:id/:token", api.download);
+app.use("/api", (req, res) => res.status(404).json({ error: "not_found", message: "Bulunamadı." }));
+
+const PAGES = new Map();
+PAGES.set("/", site.homePage());
+for (const p of site.pageBySlug.values()) PAGES.set("/" + p.slug, site.toolPage(p));
+for (const p of site.legalBySlug.values()) PAGES.set("/" + p.slug, site.legalPage(p));
+const NOT_FOUND = site.notFoundPage();
+const SITEMAP = site.sitemapXml();
+const ROBOTS = site.robotsTxt();
+
+app.get("/robots.txt", (req, res) => res.type("text/plain; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(ROBOTS));
+app.get("/sitemap.xml", (req, res) => res.type("application/xml; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(SITEMAP));
+app.get("/favicon.ico", (req, res) => res.redirect(301, "/favicon.svg"));
+app.get("/index.html", (req, res) => res.redirect(301, "/"));
+
+app.get("*", (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  let p = req.path;
+  if (p.length > 1 && p.endsWith("/")) return res.redirect(301, p.slice(0, -1) + (req.originalUrl.slice(req.path.length) || ""));
+  const html = PAGES.get(p);
+  if (!html) return next();
+  res.set("Cache-Control", "public, max-age=300");
+  res.type("html").send(html);
+});
+
+app.use((req, res) => {
+  res.status(404).type("html").set("X-Robots-Tag", "noindex").send(NOT_FOUND);
+});
+
 app.use((err, req, res, next) => {
-  console.error('İstek hatası:', err);
-  if (!res.headersSent) {
-    res.status(500).json({ success: false, error: 'Sunucu hatası oluştu.' });
-  }
+  console.error("istek hatası:", err && err.message);
+  if (res.headersSent) return next(err);
+  if (err && err.type === "entity.too.large") return res.status(413).json({ error: "too_large", message: "İstek çok büyük." });
+  if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "bad_json", message: "Geçersiz istek." });
+  res.status(500).json({ error: "server", message: "Sunucu hatası oluştu." });
 });
 
-// ---- Periyodik temizlik ----
-const { cleanOldFiles } = require("./utils/cleaner.cjs");
-cleanOldFiles(UPLOADS_DIR, 60 * 60 * 1000);
-cleanOldFiles(OUTPUT_DIR, 60 * 60 * 1000);
-
+jobs.cleanStale(UPLOAD_DIR, 60 * 60 * 1000);
+jobs.cleanStale(jobs.OUTPUT_DIR, 60 * 60 * 1000);
 setInterval(() => {
-  cleanOldFiles(UPLOADS_DIR, 60 * 60 * 1000);
-  cleanOldFiles(OUTPUT_DIR, 60 * 60 * 1000);
-}, 15 * 60 * 1000);
+  jobs.sweep();
+  jobs.cleanStale(UPLOAD_DIR, 30 * 60 * 1000);
+}, 60 * 1000).unref();
 
-// ---- Sunucu başlat ----
-const server = app.listen(PORT, () => {
-  console.log("TRNCConvert " + PORT + " portunda çalışıyor");
-});
-
-// ---- Graceful shutdown ----
-function shutdown(signal) {
-  console.log(signal + " alındı, sunucu kapatılıyor...");
-  flushLogs();
-  server.close(() => {
-    console.log("Sunucu kapatıldı.");
-    process.exit(0);
-  });
-  setTimeout(() => {
-    console.error("Zorla kapatılıyor...");
-    process.exit(1);
-  }, 10000);
+if (require.main === module) {
+  const server = app.listen(PORT, () => console.log(`TRNCConvert ${PORT} portunda çalışıyor (${PAGES.size} sayfa).`));
+  server.requestTimeout = 15 * 60 * 1000;
+  const shutdown = (signal) => {
+    console.log(`${signal} alındı, kapatılıyor.`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on("unhandledRejection", (reason) => console.error("işlenmemiş promise reddi:", reason && reason.message));
 
-process.on('uncaughtException', (err) => {
-  console.error('Yakalanmamış istisna:', err);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('İşlenmemiş promise reddi:', reason);
-});
+module.exports = app;

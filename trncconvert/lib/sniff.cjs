@@ -1,5 +1,4 @@
 "use strict";
-// Dosya imzasına (magic bytes) bakarak gerçek türü tahmin eder.
 const fs = require("fs");
 
 async function readHead(filePath, n = 4096) {
@@ -48,10 +47,10 @@ function sniffBuffer(b) {
     if (/^(heic|heix|heim|heis|hevc|hevx|mif1|msf1)/.test(brand)) {
       return /avif/.test(compat) && !/heic/.test(compat) ? "avif" : "heic";
     }
-    return "mp4"; // isom, mp41, mp42, M4A, M4V, qt, 3gp ...
+    return "mp4";
   }
-  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return "aac"; // ADTS
-  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) return "mp3"; // MPEG çerçeve senkronu
+  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return "aac";
+  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) return "mp3";
   const head = b.toString("utf8", 0, Math.min(b.length, 2048)).replace(/^﻿/, "");
   if (SVG_RE.test(head)) return "svg";
   if (!b.includes(0)) return "text";
@@ -62,7 +61,6 @@ async function sniff(filePath) {
   return sniffBuffer(await readHead(filePath));
 }
 
-// Uzantı başına kabul edilen imzalar.
 const ALLOWED = {
   pdf: ["pdf"],
   docx: ["zip", "cfb"], xlsx: ["zip", "cfb"], pptx: ["zip", "cfb"],
@@ -77,7 +75,6 @@ const ALLOWED = {
   mp4: ["mp4"], mov: ["mp4"], m4v: ["mp4"], "3gp": ["mp4"], mkv: ["matroska"], webm: ["matroska"],
   avi: ["avi"], wmv: ["asf"],
 };
-// Bazı ses dosyalarında imza tanınmayabilir (ör. ID3'süz MP3); bunları FFmpeg'e bırakırız.
 const LENIENT = new Set(["mp3", "aac", "m4a", "wma"]);
 
 function sniffMatches(ext, kind) {

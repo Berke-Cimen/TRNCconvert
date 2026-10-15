@@ -1,13 +1,10 @@
 "use strict";
-// Dış komut çalıştırıcı: argüman dizisi alır, kabuk kullanmaz.
-// Zaman aşımında süreç grubunu öldürür, çıktıyı sınırlar, isteğe bağlı stdin yazar.
-// Sıfır olmayan çıkış kodunda reddetmez; yorumlamak çağırana kalır.
 const { spawn } = require("child_process");
 
-const MAX_CAPTURE = 1024 * 1024; // stdout/stderr başına 1 MB
+const MAX_CAPTURE = 1024 * 1024;
 
 function run(cmd, args, opts = {}) {
-  const { timeoutMs = 120000, input, cwd, env } = opts;
+  const { timeoutMs = 120000, input, cwd, env, onStdout, onStderr } = opts;
   return new Promise((resolve) => {
     const detached = process.platform !== "win32";
     let child;
@@ -35,14 +32,14 @@ function run(cmd, args, opts = {}) {
       if (len < MAX_CAPTURE) chunks.push(chunk.subarray(0, MAX_CAPTURE - len));
       return len + chunk.length;
     };
-    child.stdout.on("data", (c) => { outLen = collect(out, c, outLen); });
-    child.stderr.on("data", (c) => { errLen = collect(err, c, errLen); });
+    child.stdout.on("data", (c) => { outLen = collect(out, c, outLen); if (onStdout) onStdout(c); });
+    child.stderr.on("data", (c) => { errLen = collect(err, c, errLen); if (onStderr) onStderr(c); });
 
     const kill = () => {
       try {
         if (detached) process.kill(-child.pid, "SIGKILL");
         else child.kill("SIGKILL");
-      } catch (_) { /* süreç zaten bitmiş */ }
+      } catch (_) {}
     };
 
     const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
@@ -63,7 +60,7 @@ function run(cmd, args, opts = {}) {
     child.on("error", (e) => { err.push(Buffer.from(String(e.message))); finish(null, true); });
     child.on("close", (code) => finish(code, false));
 
-    child.stdin.on("error", () => { /* süreç stdin'i okumadan kapanabilir */ });
+    child.stdin.on("error", () => {});
     if (input !== undefined) child.stdin.end(input);
     else child.stdin.end();
   });

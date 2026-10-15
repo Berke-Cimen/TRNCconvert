@@ -1,13 +1,10 @@
-# Gerçek Microsoft Office ile şifreli ve şifresiz test dosyaları üretir.
-# Windows'ta Word, Excel ve PowerPoint kurulu olmalıdır.
-# Kullanım: pwsh -File tests/office-fixtures.ps1 [-OutDir tests/fixtures/office]
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot "fixtures/office")
 )
 
 $ErrorActionPreference = "Stop"
-$Password = "Gizli-" + [char]0x015F + [char]0x011F + [char]0x0130 + "-2026"   # Gizli-şğİ-2026
-$Marker = "TRNCConvert test " + [char]0x00C7 + [char]0x011E + [char]0x0130 + [char]0x00D6 + [char]0x015E + [char]0x00DC   # ÇĞİÖŞÜ
+$Password = "Gizli-" + [char]0x015F + [char]0x011F + [char]0x0130 + "-2026"
+$Marker = "TRNCConvert test " + [char]0x00C7 + [char]0x011E + [char]0x0130 + [char]0x00D6 + [char]0x015E + [char]0x00DC
 
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
@@ -16,7 +13,6 @@ function Release($obj) {
     if ($null -ne $obj) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) }
 }
 
-# ---- Word ----
 $word = New-Object -ComObject Word.Application
 $word.Visible = $false
 $word.DisplayAlerts = 0
@@ -32,7 +28,6 @@ try {
     }
 } finally { $word.Quit(); Release $word }
 
-# ---- Excel ----
 $excel = New-Object -ComObject Excel.Application
 $excel.Visible = $false
 $excel.DisplayAlerts = $false
@@ -50,7 +45,6 @@ try {
     }
 } finally { $excel.Quit(); Release $excel }
 
-# ---- PowerPoint ----
 $ppt = New-Object -ComObject PowerPoint.Application
 try {
     foreach ($variant in @("plain", "enc")) {

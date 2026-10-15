@@ -1,5 +1,4 @@
 "use strict";
-// Yükleme ayarı: disk depolama, 95 MB sınırı, tek dosya, uzantı beyaz listesi.
 const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
@@ -30,7 +29,6 @@ function makeUpload(allowedExts) {
     },
   }).single("file");
 
-  // Hataları sabit Türkçe mesajlara çevirir.
   return (req, res, next) => handler(req, res, (err) => {
     if (!err) return next();
     if (req.file) fs.unlink(req.file.path, () => {});

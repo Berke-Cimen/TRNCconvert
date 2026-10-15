@@ -1,10 +1,8 @@
 "use strict";
-// Disk için güvenli ad ve indirme için okunabilir ad üretimi.
 
 const TR_MAP = { "ş": "s", "Ş": "S", "ç": "c", "Ç": "C", "ğ": "g", "Ğ": "G", "ı": "i", "İ": "I", "ö": "o", "Ö": "O", "ü": "u", "Ü": "U" };
 const TR_RE = new RegExp("[" + Object.keys(TR_MAP).join("") + "]", "g");
 
-// Yalnızca ASCII; disk ve HTTP başlıkları için güvenli.
 function asciiSafe(name) {
   const out = String(name)
     .normalize("NFC")
@@ -16,7 +14,6 @@ function asciiSafe(name) {
   return out || "dosya";
 }
 
-// İndirme adı: Türkçe karakterleri korur, yol ayırıcılarını ve kontrol karakterlerini atar.
 function displayBase(originalName) {
   const base = String(originalName || "")
     .normalize("NFC")
@@ -28,7 +25,6 @@ function displayBase(originalName) {
   return base || "dosya";
 }
 
-// multer/busboy UTF-8 adları latin1 olarak çözebilir; geri çevirmeyi dener.
 function fixLatin1(name) {
   const s = String(name || "");
   if (!/[\u0080-ÿ]/.test(s)) return s;
