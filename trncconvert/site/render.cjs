@@ -23,26 +23,13 @@ const CATEGORY_NAME = {
 };
 
 const ICON_PATHS = {
-  upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
-  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
-  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
-  check: '<path d="m5 12 5 5 9-10"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-  weight: '<path d="M6 21h12l-2-12H8z"/><circle cx="12" cy="6" r="3"/>',
-  code: '<path d="m8 8-5 4 5 4"/><path d="m16 8 5 4-5 4"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>',
 };
 const icon = (name, cls = "icon") =>
   `<svg class="${cls}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON_PATHS[name]}</svg>`;
 
-const LOGO = `<svg class="logo-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
-  <rect x="3" y="7" width="15" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
-  <rect x="13" y="4" width="15" height="19" rx="2" class="logo-mark-back"/>
-  <path d="M17 13.5h7m-2.5-2.5 2.5 2.5-2.5 2.5" fill="none" stroke="var(--surface)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
+const LOGO = `<span class="brand-mark" aria-hidden="true"></span>`;
 
 let ASSET_VERSION = "1";
 const setAssetVersion = (v) => { ASSET_VERSION = v; };
@@ -61,7 +48,7 @@ function header(current) {
     `<li><a href="${urlOf(slug)}"${slug === current ? ' aria-current="page"' : ""}>${esc(label)}</a></li>`).join("");
   return `<header class="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href="/" aria-label="TRNCConvert ana sayfa">${LOGO}<span class="brand-name">TRNC<span>Convert</span></span></a>
+    <a class="brand" href="/" aria-label="TRNCConvert ana sayfa">${LOGO}<span class="brand-name">TRNCConvert</span></a>
     <nav class="site-nav" aria-label="Araçlar"><ul>${links}</ul></nav>
     <button type="button" class="theme-toggle" data-theme-toggle aria-label="Koyu temaya geç">${icon("moon", "icon icon-moon")}${icon("sun", "icon icon-sun")}</button>
   </div>
@@ -77,7 +64,7 @@ function footer() {
   return `<footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-about">
-      <a class="brand brand-footer" href="/">${LOGO}<span class="brand-name">TRNC<span>Convert</span></span></a>
+      <a class="brand brand-footer" href="/">${LOGO}<span class="brand-name">TRNCConvert</span></a>
       <p>Belge, görsel, ses ve video dosyaları için ücretsiz dönüştürücü. Dosyalar 10 dakika içinde sunucudan silinir.</p>
       <p>KKTC'de geliştirildi. İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>
     </div>
@@ -99,8 +86,8 @@ function layout({ title, description, path, body, jsonLd = [], noindex = false, 
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${esc(canonical)}">`}
-<meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#15181C" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${SITE_NAME}">
 <meta property="og:locale" content="tr_TR">
@@ -108,7 +95,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(canonical)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${asset("/css/site.css")}">
 <script src="${asset("/js/theme.js")}"></script>
 ${ld}
@@ -128,14 +115,17 @@ ${catalog ? `<script src="${asset("/js/app.js")}" defer></script>` : ""}
 
 const fmtList = (exts) => [...new Set(exts.map((e) => formats.canon(e)))].map((e) => e.toUpperCase()).join(", ");
 
-function trustList() {
-  const items = [
-    ["clock", "Dosyalar 10 dakika içinde sunucudan silinir."],
-    ["user", "Hesap açmanız gerekmez."],
-    ["weight", "Dosya başına en fazla 95 MB, tek seferde 10 dosya."],
-    ["lock", "Bağlantı HTTPS ile şifrelenir."],
-  ];
-  return `<ul class="trust">${items.map(([i, t]) => `<li>${icon(i)}<span>${esc(t)}</span></li>`).join("")}</ul>`;
+function notes() {
+  return `<p class="notes">Yüklediğiniz dosyalar ve sonuçlar 10 dakika içinde sunucudan silinir. Hesap açmanız gerekmez. Dosya başına en fazla 95 MB, tek seferde 10 dosya yükleyebilirsiniz.</p>`;
+}
+
+const pairLabel = (exts) => {
+  const uniq = [...new Set((exts || []).map((e) => formats.canon(e)))];
+  return uniq.length === 1 ? uniq[0].toUpperCase() : null;
+};
+
+function pairLine(from, to) {
+  return `<p class="pair" aria-hidden="true"><span class="pair-from" data-pair-from>${esc(from)}</span><svg class="pair-arrow" viewBox="0 0 64 32" focusable="false"><path d="M2 16h54M42 3l15 13-15 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square"/></svg><span class="pair-to" data-pair-to>${esc(to)}</span></p>`;
 }
 
 function converterTool({ category = null, from = null, to = null }) {
@@ -148,12 +138,15 @@ function converterTool({ category = null, from = null, to = null }) {
     ${cats.map((c) => `<button type="button" role="tab" class="tab" id="tab-${c.id}" data-category="${c.id}" aria-selected="${c.id === initial}" tabindex="${c.id === initial ? 0 : -1}">${esc(c.label)}</button>`).join("")}
   </div>`;
   const hintFormats = fmtList(from || inputsOf(initial));
-  return `<section class="tool" data-tool="convert" data-category="${esc(initial)}" data-fixed="${category ? "1" : ""}" data-from="${esc((from || []).join(","))}" data-to="${esc(to || "")}" aria-label="Dönüştürücü">
+  const pairFrom = pairLabel(from) || (category ? formats.CATEGORIES.find((c) => c.id === category).label : "Dosya");
+  const pairTo = to ? to.toUpperCase() : "?";
+  return `<section class="tool" data-tool="convert" data-category="${esc(initial)}" data-fixed="${category ? "1" : ""}" data-from="${esc((from || []).join(","))}" data-to="${esc(to || "")}" data-pair-default="${esc(pairFrom)}" aria-label="Dönüştürücü">
   ${tabs}
+  <div class="folder">
+  ${pairLine(pairFrom, pairTo)}
   <div class="drop" data-drop tabindex="0" role="button" aria-describedby="drop-hint">
     <input type="file" class="visually-hidden" data-file-input multiple accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
-    <span class="drop-icon">${icon("upload")}</span>
-    <span class="drop-title">Dosyaları buraya bırakın</span>
+    <span class="drop-title">Dosyaları buraya bırakın ya da</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="drop-hint" data-drop-hint>${esc(hintFormats)}. Dosya başına en fazla 95 MB.</span>
   </div>
@@ -179,16 +172,18 @@ function converterTool({ category = null, from = null, to = null }) {
   </div>
   <p class="status" data-status role="status" aria-live="polite"></p>
   <noscript><p class="status status-error">Dönüştürücü için JavaScript'in açık olması gerekir.</p></noscript>
+  </div>
 </section>`;
 }
 
 function unlockTool({ kinds }) {
   const accept = kinds.map((k) => "." + k).join(",");
   return `<section class="tool tool-unlock" data-tool="unlock" aria-label="Şifre kaldırma aracı">
+  <div class="folder">
+  ${pairLine(pairLabel(kinds) || "Şifreli", "şifresiz")}
   <div class="drop" data-drop tabindex="0" role="button" aria-describedby="unlock-hint">
     <input type="file" class="visually-hidden" data-file-input multiple accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
-    <span class="drop-icon">${icon("lock")}</span>
-    <span class="drop-title">Şifreli dosyaları buraya bırakın</span>
+    <span class="drop-title">Şifreli dosyaları buraya bırakın ya da</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="unlock-hint">${esc(fmtList(kinds))}. Dosya başına en fazla 95 MB, tek seferde 10 dosya.</span>
   </div>
@@ -212,6 +207,7 @@ function unlockTool({ kinds }) {
   <p class="status" data-status role="status" aria-live="polite"></p>
   <p class="tool-note">Bu araç şifre kırmaz ya da tahmin etmez; yalnızca girdiğiniz şifreyle çalışır. Girdiğiniz şifreler saklanmaz. Devam ederek dosyaların sahibi olduğunuzu ya da kullanma yetkiniz bulunduğunu onaylamış olursunuz.</p>
   <noscript><p class="status status-error">Bu araç için JavaScript'in açık olması gerekir.</p></noscript>
+  </div>
 </section>`;
 }
 
@@ -308,7 +304,7 @@ function toolPage(page) {
   <div class="tool-grid">
     ${toolFor(page)}
     <aside class="tool-aside" aria-label="Önemli bilgiler">
-      ${trustList()}
+      ${notes()}
       ${stepsBlock(page.steps)}
     </aside>
   </div>
@@ -344,9 +340,9 @@ function homePage() {
   <div class="tool-grid">
     ${converterTool({})}
     <aside class="tool-aside" aria-label="Önemli bilgiler">
-      ${trustList()}
+      ${notes()}
       <section class="unlock-promo" aria-labelledby="unlock-promo-title">
-        <h2 id="unlock-promo-title">${icon("unlock")} Şifresini bildiğiniz dosyayı açın</h2>
+        <h2 id="unlock-promo-title">Şifresini bildiğiniz dosyayı açın</h2>
         <p>PDF, Word, Excel ve PowerPoint dosyalarından açılış şifresini kaldırın. Şifre saklanmaz.</p>
         <ul>${unlockItems.map((p) => `<li><a href="${urlOf(p.slug)}">${esc(p.h1)}</a></li>`).join("")}</ul>
       </section>

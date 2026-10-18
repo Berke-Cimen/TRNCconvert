@@ -220,7 +220,27 @@
       return common;
     }
 
+    var pairFrom = $(root, "[data-pair-from]");
+    var pairTo = $(root, "[data-pair-to]");
+    var pairDefault = root.getAttribute("data-pair-default") || "Dosya";
+
+    function updatePair() {
+      if (!pairFrom || !pairTo) return;
+      var exts = [];
+      items.forEach(function (it) { var c = canon(it.ext); if (exts.indexOf(c) < 0) exts.push(c); });
+      var from = !items.length ? pairDefault : exts.length === 1 ? exts[0].toUpperCase() : items.length + " dosya";
+      var shown = !items.length ? preset : pendingItems().length ? target : batch.target || target;
+      pairFrom.textContent = from;
+      pairTo.textContent = shown ? shown.toUpperCase() : "?";
+      if (shown) pairTo.removeAttribute("data-empty"); else pairTo.setAttribute("data-empty", "");
+    }
+
     function renderTargets() {
+      renderTargetChips();
+      updatePair();
+    }
+
+    function renderTargetChips() {
       var list = commonTargets();
       targetsEl.textContent = "";
       if (!pendingItems().length) {
@@ -247,6 +267,7 @@
         radio.addEventListener("change", function () {
           target = fmt;
           updateQuality();
+          updatePair();
         });
         var span = el("span", null, fmt.toUpperCase());
         span.title = catalog.labels[fmt] || fmt.toUpperCase();

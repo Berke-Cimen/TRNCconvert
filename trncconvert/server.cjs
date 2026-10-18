@@ -67,8 +67,7 @@ site.setAssetVersion(crypto.createHash("sha1")
   .update(["css/site.css", "js/app.js", "js/theme.js"].map(fileHash).join(":")).digest("hex").slice(0, 10));
 
 const FONT_DIRS = [
-  path.dirname(require.resolve("@fontsource-variable/source-sans-3/package.json")),
-  path.dirname(require.resolve("@fontsource-variable/bricolage-grotesque/package.json")),
+  path.dirname(require.resolve("@fontsource-variable/archivo/package.json")),
 ].map((d) => path.join(d, "files"));
 for (const dir of FONT_DIRS) {
   app.use("/fonts", express.static(dir, { immutable: true, maxAge: "365d", index: false, fallthrough: true }));
