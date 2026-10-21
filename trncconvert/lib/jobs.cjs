@@ -21,6 +21,10 @@ let active = 0;
 
 const rid = () => crypto.randomBytes(16).toString("hex");
 
+function sizeOf(p) {
+  try { return fs.statSync(p).size; } catch (_) { return null; }
+}
+
 function rmQuiet(p) {
   if (p) fs.rm(p, { recursive: true, force: true }, () => {});
 }
@@ -38,7 +42,7 @@ function createJob({ type, inputPath, ext, originalName, target, quality, ip }) 
     createdAt: now,
     expiresAt: now + (type === "unlock" ? PASSWORD_WAIT_MS : MAX_QUEUE_WAIT_MS),
     ip,
-    input: { path: inputPath, ext, originalName },
+    input: { path: inputPath, ext, originalName, size: sizeOf(inputPath) },
     target,
     quality,
     workDir,
@@ -80,7 +84,10 @@ function publicView(job) {
   if (job.status === "running" && job.progress !== null) view.progress = Math.round(job.progress * 100);
   if (job.status === "error") view.error = job.error;
   if (job.status === "done") {
-    view.download = { url: `/dl/${job.id}/${job.token}`, name: job.output.name, size: job.output.size };
+    view.download = {
+      url: `/dl/${job.id}/${job.token}`, name: job.output.name, size: job.output.size,
+      inputSize: job.input.size || null, expiresAt: job.expiresAt,
+    };
   }
   return view;
 }

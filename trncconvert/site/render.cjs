@@ -66,7 +66,7 @@ function footer() {
     <div class="footer-about">
       <a class="brand brand-footer" href="/">${LOGO}<span class="brand-name">TRNCConvert</span></a>
       <p>Belge, görsel, ses ve video dosyaları için ücretsiz dönüştürücü. Dosyalar 10 dakika içinde sunucudan silinir.</p>
-      <p>KKTC'de geliştirildi. İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>
+      <p>Berke Çimen tarafından KKTC'de geliştirildi. İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>
     </div>
     ${col("Sık kullanılanlar", popular)}
     ${col("Şifre kaldırma", unlock)}
@@ -116,7 +116,7 @@ ${catalog ? `<script src="${asset("/js/app.js")}" defer></script>` : ""}
 const fmtList = (exts) => [...new Set(exts.map((e) => formats.canon(e)))].map((e) => e.toUpperCase()).join(", ");
 
 function notes() {
-  return `<p class="notes">Yüklediğiniz dosyalar ve sonuçlar 10 dakika içinde sunucudan silinir. Hesap açmanız gerekmez. Dosya başına en fazla 95 MB, tek seferde 10 dosya yükleyebilirsiniz.</p>`;
+  return `<p class="notes">Dosyalar sunucuya HTTPS ile yüklenir ve iş bittikten 10 dakika sonra silinir. Beklemek istemezseniz her sonucun yanındaki Şimdi sil düğmesiyle hemen silebilirsiniz. Hesap, reklam ve ücret yok. Dosya başına en fazla 95 MB, tek seferde 10 dosya.</p>`;
 }
 
 const pairLabel = (exts) => {
@@ -149,6 +149,7 @@ function converterTool({ category = null, from = null, to = null }) {
     <span class="drop-title">Dosyaları buraya bırakın ya da</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="drop-hint" data-drop-hint>${esc(hintFormats)}. Dosya başına en fazla 95 MB.</span>
+    <span class="drop-paste">Kopyaladığınız bir dosyayı Ctrl+V ile de yapıştırabilirsiniz.</span>
   </div>
   <ol class="queue" data-queue aria-label="Seçilen dosyalar"></ol>
   <div class="options" data-options hidden>
@@ -186,6 +187,7 @@ function unlockTool({ kinds }) {
     <span class="drop-title">Şifreli dosyaları buraya bırakın ya da</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="unlock-hint">${esc(fmtList(kinds))}. Dosya başına en fazla 95 MB, tek seferde 10 dosya.</span>
+    <span class="drop-paste">Kopyaladığınız bir dosyayı Ctrl+V ile de yapıştırabilirsiniz.</span>
   </div>
   <form class="unlock-form" data-unlock-form novalidate>
     <ol class="queue" data-queue aria-label="Seçilen dosyalar"></ol>

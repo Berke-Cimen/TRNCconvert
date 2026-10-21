@@ -88,6 +88,19 @@ router.get("/jobs/:id", (req, res) => {
   res.json(jobs.publicView(job));
 });
 
+router.delete("/jobs/:id", (req, res) => {
+  const found = jobs.getJob(req.params.id);
+  res.set("Cache-Control", "no-store");
+  if (!found || !jobs.tokenMatches(found, req.query.t)) {
+    return res.status(404).json({ error: "not_found", message: "Dosya bulunamadı ya da zaten silinmiş." });
+  }
+  if (found.status === "running") {
+    return res.status(409).json({ error: "running", message: "Dosya işlenirken silinemez. Bitince tekrar deneyin." });
+  }
+  jobs.removeJob(found.id);
+  res.json({ deleted: true });
+});
+
 router.post("/zip", zipLimit, express.json({ limit: "8kb" }), (req, res) => {
   const list = Array.isArray(req.body && req.body.items) ? req.body.items.slice(0, formats.MAX_FILES) : [];
   const items = [];

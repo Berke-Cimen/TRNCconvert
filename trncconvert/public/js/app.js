@@ -42,6 +42,63 @@
     if (bytes < 1048576) return (bytes / 1024).toFixed(0) + " KB";
     return (bytes / 1048576).toFixed(1).replace(".", ",") + " MB";
   }
+  var IMAGE_OUT = /\.(jpg|png|webp|avif|gif)$/i;
+  var dropTargets = [];
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+  function sizeChange(before, after) {
+    if (!before || !after || before === after) return "";
+    var pct = Math.round(Math.abs(after - before) / before * 100);
+    if (pct < 1) return "";
+    return after < before ? ", %" + pct + " daha küçük" : ", %" + pct + " daha büyük";
+  }
+
+  function fillReceipt(e, d, onDeleted) {
+    var t = new Date(d.expiresAt || Date.now() + 600000);
+    var before = d.inputSize ? " (önce " + formatSize(d.inputSize) + sizeChange(d.inputSize, d.size) + ")" : "";
+    e.meta.textContent = formatSize(d.size) + before + ". Sunucudan silinme saati " + pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + ".";
+    var a = el("a", "btn btn-primary btn-small", "İndir");
+    a.href = d.url;
+    a.setAttribute("download", d.name);
+    a.setAttribute("aria-label", d.name + " dosyasını indir");
+    var del = el("button", "btn btn-small btn-ghost", "Şimdi sil");
+    del.type = "button";
+    del.setAttribute("aria-label", d.name + " dosyasını sunucudan şimdi sil");
+    del.addEventListener("click", function () {
+      var parts = d.url.split("/");
+      del.disabled = true;
+      fetch("/api/jobs/" + parts[2] + "?t=" + encodeURIComponent(parts[3]), { method: "DELETE" }).then(function (res) {
+        if (res.ok || res.status === 404) onDeleted();
+        else del.disabled = false;
+      }, function () { del.disabled = false; });
+    });
+    e.actions.appendChild(a);
+    e.actions.appendChild(del);
+    var old = e.li.querySelector(".q-thumb");
+    if (old) old.remove();
+    if (IMAGE_OUT.test(d.name)) {
+      var img = document.createElement("img");
+      img.className = "q-thumb";
+      img.alt = d.name + " önizlemesi";
+      img.loading = "lazy";
+      img.src = d.url;
+      e.li.appendChild(img);
+    }
+  }
+
+  function clearReceipt(e) {
+    var old = e.li.querySelector(".q-thumb");
+    if (old) old.remove();
+    e.actions.textContent = "";
+    e.meta.textContent = "Sunucudan silindi.";
+  }
+
+  function hasFiles(ev) {
+    var types = ev.dataTransfer && ev.dataTransfer.types;
+    return Boolean(types && Array.prototype.indexOf.call(types, "Files") >= 0);
+  }
+
   function icon(name) {
     var paths = {
       file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
@@ -344,12 +401,14 @@
         e.meta.textContent = it.progress != null ? "Dönüştürülüyor %" + it.progress : "Dönüştürülüyor";
         setBar(it, it.progress != null ? it.progress / 100 : "indeterminate");
       } else if (it.status === "done") {
-        e.meta.textContent = "Hazır, " + formatSize(it.download.size);
-        var a = el("a", "btn btn-primary btn-small", "İndir");
-        a.href = it.download.url;
-        a.setAttribute("download", it.download.name);
-        a.setAttribute("aria-label", it.download.name + " dosyasını indir");
-        e.actions.appendChild(a);
+        fillReceipt(e, it.download, function () {
+          it.status = "deleted";
+          renderItem(it);
+          afterChange();
+        });
+        setBar(it, null);
+      } else if (it.status === "deleted") {
+        clearReceipt(e);
         setBar(it, null);
       } else if (it.status === "error") {
         e.meta.textContent = it.error;
@@ -374,7 +433,7 @@
     function afterChange() {
       drop.classList.toggle("is-compact", items.length > 0);
       renderTargets();
-      var finished = items.length > 0 && items.every(function (it) { return it.status === "done" || it.status === "error"; });
+      var finished = items.length > 0 && items.every(function (it) { return it.status === "done" || it.status === "error" || it.status === "deleted"; });
       var doneCount = items.filter(function (it) { return it.status === "done"; }).length;
       zipBtn.hidden = !(finished && doneCount >= 2);
       resetBtn.hidden = !(finished && !busy);
@@ -422,6 +481,7 @@
     }
 
     bindDrop(drop, input, addFiles);
+    dropTargets.push({ root: root, add: addFiles });
 
     function pollJob(it) {
       return getJson("/api/jobs/" + it.jobId + "?t=" + encodeURIComponent(it.token)).then(function (r) {
@@ -645,11 +705,15 @@
       if (it.signed && (s === "awaiting" || s === "done")) text += " Dijital imza, şifre kaldırılınca geçersiz olur.";
       e.meta.textContent = text;
       if (s === "done") {
-        var a = el("a", "btn btn-primary btn-small", "İndir");
-        a.href = it.download.url;
-        a.setAttribute("download", it.download.name);
-        a.setAttribute("aria-label", it.download.name + " dosyasını indir");
-        e.actions.appendChild(a);
+        var note = e.meta.textContent;
+        fillReceipt(e, it.download, function () {
+          it.state = "deleted";
+          render(it);
+          refresh();
+        });
+        e.meta.textContent = note + " " + e.meta.textContent;
+      } else if (s === "deleted") {
+        clearReceipt(e);
       } else if (!working && (s === "awaiting" || s === "info" || s === "error")) {
         var rm = el("button", "q-remove");
         rm.type = "button";
@@ -793,6 +857,7 @@
     }
 
     bindDrop(drop, input, addFiles);
+    dropTargets.push({ root: root, add: addFiles });
 
     sameBox.addEventListener("change", function () {
       renderAll();
@@ -878,6 +943,45 @@
     refresh();
   }
 
+  function initPageDrop() {
+    if (!dropTargets.length) return;
+    var overlay = el("div", "page-drop", "Dosyaları bırakın");
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.appendChild(overlay);
+    var depth = 0;
+    var main = dropTargets[0];
+    window.addEventListener("dragenter", function (ev) {
+      if (!hasFiles(ev)) return;
+      depth++;
+      overlay.hidden = false;
+    });
+    window.addEventListener("dragleave", function () {
+      depth = Math.max(0, depth - 1);
+      if (!depth) overlay.hidden = true;
+    });
+    window.addEventListener("dragover", function (ev) {
+      if (hasFiles(ev)) ev.preventDefault();
+    });
+    window.addEventListener("drop", function (ev) {
+      depth = 0;
+      overlay.hidden = true;
+      if (!hasFiles(ev) || ev.defaultPrevented) return;
+      ev.preventDefault();
+      main.add(ev.dataTransfer.files);
+      main.root.scrollIntoView({ block: "start" });
+    });
+    document.addEventListener("paste", function (ev) {
+      var tag = (ev.target && ev.target.tagName) || "";
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (ev.target && ev.target.isContentEditable)) return;
+      var files = ev.clipboardData && ev.clipboardData.files;
+      if (!files || !files.length) return;
+      ev.preventDefault();
+      main.add(files);
+    });
+  }
+
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="convert"]'), initConverter);
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="unlock"]'), initUnlock);
+  initPageDrop();
 })();

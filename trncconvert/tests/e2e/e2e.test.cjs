@@ -323,3 +323,16 @@ test("toplu şifre kaldırma: aynı şifre birden fazla dosyada çalışır, yan
   assert.equal(rc.status, 401);
   assert.equal(rc.body.attemptsLeft, 2);
 });
+
+test("şimdi sil: sonuç anahtarla hemen silinir, anahtarsız silinemez", { skip: SKIP.has("image") }, async () => {
+  const { job } = await convert("sample.png", "webp");
+  const [, , id, token] = job.download.url.split("/");
+  assert.ok(job.download.expiresAt > Date.now());
+  assert.ok(job.download.inputSize > 0);
+  const noKey = await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE", headers: UA });
+  assert.equal(noKey.status, 404);
+  const del = await fetch(`${BASE}/api/jobs/${id}?t=${token}`, { method: "DELETE", headers: UA });
+  assert.equal(del.status, 200);
+  const after = await fetch(BASE + job.download.url, { headers: UA });
+  assert.equal(after.status, 404);
+});

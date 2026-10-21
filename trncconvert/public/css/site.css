@@ -161,8 +161,8 @@ button, input, select { font: inherit; color: inherit; }
 .breadcrumb li + li::before { content: "/"; margin-right: 6px; }
 .breadcrumb a { color: var(--ink-2); }
 
-.hero { padding: var(--s5) 0 var(--s4); }
-.hero-home { padding-top: var(--s6); }
+.hero { padding: var(--s4) 0 var(--s3); }
+.hero-home { padding-top: var(--s5); }
 .hero-text { max-width: 46rem; }
 .lead { margin-top: 12px; font-size: 1.1875rem; color: var(--ink-2); max-width: 40rem; }
 .hero .btn { margin-top: var(--s4); }
@@ -211,7 +211,9 @@ button, input, select { font: inherit; color: inherit; }
 .drop-hint { flex-basis: 100%; font-size: 0.9375rem; color: var(--ink-2); }
 .drop.is-dragging .drop-hint { color: var(--mark-ink); }
 .drop.is-compact { padding: 12px var(--s3); }
-.drop.is-compact .drop-hint { display: none; }
+.drop.is-compact .drop-hint, .drop.is-compact .drop-paste { display: none; }
+.drop-paste { flex-basis: 100%; font-size: 0.875rem; color: var(--ink-2); margin-top: -6px; }
+@media (hover: none) { .drop-paste { display: none; } }
 
 .queue { list-style: none; margin-top: var(--s3); display: grid; gap: 4px; }
 .queue:empty { display: none; }
@@ -362,4 +364,17 @@ button, input, select { font: inherit; color: inherit; }
 
 @media print {
   .site-header, .site-footer, .tool { display: none; }
+}
+
+.q-thumb {
+  grid-column: 1 / -1; justify-self: start; max-width: 100%; max-height: 180px; margin-top: 10px;
+  object-fit: contain; background: repeating-conic-gradient(var(--rule-soft) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+  outline: 1px solid var(--rule-soft);
+}
+.q-actions .btn-ghost { min-height: 36px; padding: 0 12px; font-size: 0.9375rem; border-color: var(--rule-soft); }
+.page-drop {
+  position: fixed; inset: 12px; z-index: 50; display: grid; place-items: center; pointer-events: none;
+  background: color-mix(in srgb, var(--mark) 88%, transparent); color: var(--mark-ink);
+  border: 3px dashed var(--mark-ink);
+  font-weight: 900; font-stretch: 125%; font-size: clamp(2rem, 1rem + 5vw, 4.5rem); letter-spacing: -0.02em;
 }
