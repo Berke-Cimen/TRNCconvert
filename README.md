@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/FFmpeg-7.x-007808?style=for-the-badge&logo=ffmpeg&logoColor=white" alt="FFmpeg">
   <img src="https://img.shields.io/badge/LibreOffice-25.x-18A303?style=for-the-badge&logo=libreoffice&logoColor=white" alt="LibreOffice">
   <img src="https://img.shields.io/badge/Sharp-0.35-99CC00?style=for-the-badge&logo=sharp&logoColor=white" alt="Sharp">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
   <img src="https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/Docker-Hazır-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/Coolify-Uyumlu-6B16ED?style=for-the-badge" alt="Coolify">
@@ -48,7 +49,8 @@ TRNCConvert, iş kuyruğu tabanlı bir sunucuyu açık kaynak dönüştürme mot
 | **Uzun işler** | Yükle, sorgula, indir akışı; Cloudflare'in 125 sn sınırına takılmaz |
 | **Gizlilik** | Hesap yok, çerez yok, takip yok; dosyalar 10 dakika içinde silinir |
 | **SEO** | 38 sunucuda üretilen Türkçe sayfa, site haritası, robots.txt, JSON-LD |
-| **Tasarım** | Açık ve koyu tema, mobil uyumlu, klavye ile kullanılabilir |
+| **Tasarım** | Tailwind CSS 4, açık ve koyu tema, mobil uyumlu, klavye ile kullanılabilir |
+| **Animasyonlar** | auto-animate (kuyruk), rough-notation (elle çizilmiş işaretler), canvas-confetti (toplu iş bitince); hareket azaltma tercihine uyar |
 
 ---
 

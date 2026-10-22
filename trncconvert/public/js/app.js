@@ -44,6 +44,52 @@
   }
   var IMAGE_OUT = /\.(jpg|png|webp|avif|gif)$/i;
   var dropTargets = [];
+  var REDUCED = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var fx = { annotate: null, confetti: null };
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function loadFx() {
+    if (REDUCED) return;
+    window.__rno_kf_s = true;
+    import("/vendor/auto-animate.js").then(function (m) {
+      Array.prototype.forEach.call(document.querySelectorAll("[data-queue]"), function (q) { m.default(q, { duration: 240 }); });
+    }).catch(function () {});
+    import("/vendor/rough-notation.js").then(function (m) { fx.annotate = m.annotate; }).catch(function () {});
+    import("/vendor/confetti.js").then(function (m) {
+      var cv = document.createElement("canvas");
+      cv.className = "confetti-canvas";
+      cv.setAttribute("aria-hidden", "true");
+      document.body.appendChild(cv);
+      fx.confetti = m.default.create(cv, { resize: true, useWorker: false, disableForReducedMotion: true });
+    }).catch(function () {});
+  }
+
+  function celebrate(anchor) {
+    if (!fx.confetti) return;
+    var r = anchor && anchor.offsetParent ? anchor.getBoundingClientRect() : null;
+    var origin = r ? { x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight } : { x: 0.5, y: 0.6 };
+    fx.confetti({ particleCount: 90, spread: 75, startVelocity: 38, origin: origin, scalar: 0.9,
+      colors: [cssVar("--red") || "#D4111B", "#FFE45C", "#000000", "#EED896", "#FFFFFF"] });
+  }
+
+  function scribble(target, type, color) {
+    if (!fx.annotate || !target) return;
+    setTimeout(function () {
+      if (!target.isConnected) return;
+      fx.annotate(target, { type: type, color: color, padding: type === "circle" ? 8 : 2, strokeWidth: 2, animationDuration: 700, iterations: 1 }).show();
+    }, 350);
+  }
+
+  function bump(root) {
+    var f = root.querySelector(".folder");
+    if (!f || REDUCED) return;
+    f.classList.remove("is-bump");
+    void f.offsetWidth;
+    f.classList.add("is-bump");
+  }
 
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
 
@@ -56,8 +102,16 @@
 
   function fillReceipt(e, d, onDeleted) {
     var t = new Date(d.expiresAt || Date.now() + 600000);
-    var before = d.inputSize ? " (önce " + formatSize(d.inputSize) + sizeChange(d.inputSize, d.size) + ")" : "";
-    e.meta.textContent = formatSize(d.size) + before + ". Sunucudan silinme saati " + pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + ".";
+    var change = d.inputSize ? sizeChange(d.inputSize, d.size) : "";
+    var saving = null;
+    e.meta.textContent = "";
+    e.meta.appendChild(document.createTextNode(formatSize(d.size) + (d.inputSize ? " (önce " + formatSize(d.inputSize) : "")));
+    if (change) {
+      saving = el("span", "q-saving", change.slice(2));
+      e.meta.appendChild(document.createTextNode(", "));
+      e.meta.appendChild(saving);
+    }
+    e.meta.appendChild(document.createTextNode((d.inputSize ? ")" : "") + ". Sunucudan silinme saati " + pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + "."));
     var a = el("a", "btn btn-primary btn-small", "İndir");
     a.href = d.url;
     a.setAttribute("download", d.name);
@@ -75,6 +129,8 @@
     });
     e.actions.appendChild(a);
     e.actions.appendChild(del);
+    scribble(a, "circle", cssVar("--red") || "#D4111B");
+    if (saving) scribble(saving, "highlight", "#FFE45C");
     var old = e.li.querySelector(".q-thumb");
     if (old) old.remove();
     if (IMAGE_OUT.test(d.name)) {
@@ -288,7 +344,15 @@
       var from = !items.length ? pairDefault : exts.length === 1 ? exts[0].toUpperCase() : items.length + " dosya";
       var shown = !items.length ? preset : pendingItems().length ? target : batch.target || target;
       pairFrom.textContent = from;
-      pairTo.textContent = shown ? shown.toUpperCase() : "?";
+      var nextTo = shown ? shown.toUpperCase() : "?";
+      if (pairTo.textContent !== nextTo) {
+        pairTo.textContent = nextTo;
+        if (!REDUCED) {
+          pairTo.classList.remove("is-flipping");
+          void pairTo.offsetWidth;
+          pairTo.classList.add("is-flipping");
+        }
+      }
       if (shown) pairTo.removeAttribute("data-empty"); else pairTo.setAttribute("data-empty", "");
     }
 
@@ -474,6 +538,7 @@
         queueEl.appendChild(rowFor(it));
         renderItem(it);
       });
+      if (items.length) bump(root);
       afterChange();
       var uniq = problems.filter(function (p, i) { return problems.indexOf(p) === i; });
       setStatus(uniq.join(" "), uniq.length > 0);
@@ -582,6 +647,7 @@
         var total = items.length;
         afterChange();
         if (done === total) {
+          if (total >= 2) celebrate(zipBtn);
           setStatus(total === 1 ? "Dosyanız hazır. İndirme bağlantısı 10 dakika geçerlidir." : total + " dosyanın hepsi hazır. İndirme bağlantıları 10 dakika geçerlidir.");
         } else {
           setStatus(total + " dosyadan " + done + " tanesi dönüştürüldü. Hata alan dosyaların açıklaması listede.", done === 0);
@@ -711,7 +777,7 @@
           render(it);
           refresh();
         });
-        e.meta.textContent = note + " " + e.meta.textContent;
+        e.meta.insertBefore(document.createTextNode(note + " "), e.meta.firstChild);
       } else if (s === "deleted") {
         clearReceipt(e);
       } else if (!working && (s === "awaiting" || s === "info" || s === "error")) {
@@ -841,6 +907,7 @@
       var uniq = problems.filter(function (p, i) { return problems.indexOf(p) === i; });
       setStatus(uniq.join(" "), uniq.length > 0);
       if (!added.length) { refresh(); return; }
+      bump(root);
       uploading = true;
       refresh();
       added.reduce(function (chain, it) {
@@ -899,6 +966,7 @@
         working = false;
         ready.forEach(function (it) { if (it.state !== "awaiting") it.el.pw.value = ""; });
         renderAll();
+        if (!awaiting().length && doneItems().length >= 2) celebrate(zipBtn);
         var left = awaiting();
         if (left.length) {
           setStatus(left.length === 1 ? "Bir dosyanın şifresi yanlış ya da eksik. Düzeltip tekrar deneyin." : left.length + " dosyanın şifresi yanlış ya da eksik. Düzeltip tekrar deneyin.", true);
@@ -945,7 +1013,8 @@
 
   function initPageDrop() {
     if (!dropTargets.length) return;
-    var overlay = el("div", "page-drop", "Dosyaları bırakın");
+    var overlay = el("div", "page-drop");
+    overlay.appendChild(el("span", null, "Dosyaları bırakın"));
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
     document.body.appendChild(overlay);
@@ -984,4 +1053,5 @@
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="convert"]'), initConverter);
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="unlock"]'), initUnlock);
   initPageDrop();
+  loadFx();
 })();

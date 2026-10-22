@@ -1,3 +1,12 @@
+FROM node:24-trixie-slim AS css
+WORKDIR /build
+COPY trncconvert/package*.json ./
+RUN npm ci
+COPY trncconvert/styles ./styles
+COPY trncconvert/site ./site
+COPY trncconvert/public ./public
+RUN npx tailwindcss -i styles/site.css -o public/css/site.css --minify
+
 FROM node:24-trixie-slim
 
 ENV NODE_ENV=production \
@@ -27,6 +36,7 @@ WORKDIR /app
 COPY trncconvert/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY trncconvert/. .
+COPY --from=css /build/public/css/site.css ./public/css/site.css
 
 RUN mkdir -p uploads output data \
     && chown -R node:node /app/uploads /app/output /app/data

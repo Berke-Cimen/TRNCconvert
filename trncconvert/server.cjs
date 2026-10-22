@@ -72,6 +72,17 @@ const FONT_DIRS = [
 for (const dir of FONT_DIRS) {
   app.use("/fonts", express.static(dir, { immutable: true, maxAge: "365d", index: false, fallthrough: true }));
 }
+const VENDOR = {
+  "auto-animate.js": path.join(__dirname, "node_modules/@formkit/auto-animate/index.min.js"),
+  "rough-notation.js": path.join(__dirname, "node_modules/rough-notation/lib/rough-notation.esm.js"),
+  "confetti.js": path.join(__dirname, "node_modules/canvas-confetti/dist/confetti.module.mjs"),
+};
+app.get("/vendor/:file", (req, res, next) => {
+  const file = VENDOR[req.params.file];
+  if (!file) return next();
+  res.type("application/javascript").set("Cache-Control", "public, max-age=604800");
+  res.sendFile(file);
+});
 app.use(express.static(PUBLIC_DIR, {
   index: false,
   maxAge: "7d",
