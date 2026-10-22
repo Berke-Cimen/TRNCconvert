@@ -1050,8 +1050,24 @@
     });
   }
 
+  function initFilters() {
+    var grid = document.querySelector("[data-tool-grid]");
+    var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-filter]"));
+    if (!grid || !buttons.length) return;
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var cat = b.getAttribute("data-filter");
+        buttons.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        Array.prototype.forEach.call(grid.children, function (li) {
+          li.hidden = cat !== "all" && li.getAttribute("data-cat") !== cat;
+        });
+      });
+    });
+  }
+
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="convert"]'), initConverter);
   Array.prototype.forEach.call(document.querySelectorAll('[data-tool="unlock"]'), initUnlock);
   initPageDrop();
   loadFx();
+  initFilters();
 })();

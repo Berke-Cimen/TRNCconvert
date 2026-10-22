@@ -146,7 +146,7 @@ function converterTool({ category = null, from = null, to = null }) {
   ${pairLine(pairFrom, pairTo)}
   <div class="drop" data-drop tabindex="0" role="button" aria-describedby="drop-hint">
     <input type="file" class="visually-hidden" data-file-input multiple accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
-    <span class="drop-title">Dosyaları buraya bırakın ya da</span>
+    <span class="drop-title">veya dosyaları buraya bırakın</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="drop-hint" data-drop-hint>${esc(hintFormats)}. Dosya başına en fazla 95 MB.</span>
     <span class="drop-paste">Kopyaladığınız bir dosyayı Ctrl+V ile de yapıştırabilirsiniz.</span>
@@ -184,7 +184,7 @@ function unlockTool({ kinds }) {
   ${pairLine(pairLabel(kinds) || "Şifreli", "şifresiz")}
   <div class="drop" data-drop tabindex="0" role="button" aria-describedby="unlock-hint">
     <input type="file" class="visually-hidden" data-file-input multiple accept="${esc(accept)}" tabindex="-1" aria-hidden="true">
-    <span class="drop-title">Şifreli dosyaları buraya bırakın ya da</span>
+    <span class="drop-title">veya şifreli dosyaları buraya bırakın</span>
     <span class="btn btn-secondary drop-button">Dosya seç</span>
     <span class="drop-hint" id="unlock-hint">${esc(fmtList(kinds))}. Dosya başına en fazla 95 MB, tek seferde 10 dosya.</span>
     <span class="drop-paste">Kopyaladığınız bir dosyayı Ctrl+V ile de yapıştırabilirsiniz.</span>
@@ -293,29 +293,90 @@ function toolFor(page) {
   return converterTool({ category: page.category, from: page.from, to: page.to });
 }
 
+const KIND_OF = {
+  pdf: "pdf", docx: "word", doc: "word", odt: "word", rtf: "word", txt: "word",
+  xlsx: "excel", xls: "excel", ods: "excel", csv: "excel",
+  pptx: "slides", ppt: "slides", odp: "slides",
+};
+
+const KIND_STYLE = {
+  pdf: { tile: "bg-[#E5322D]" },
+  word: { tile: "bg-[#2B66C9]" },
+  excel: { tile: "bg-[#1E8E4E]" },
+  slides: { tile: "bg-[#E8641B]" },
+  image: { tile: "bg-[#8B3FD9]" },
+  audio: { tile: "bg-[#0F9D8F]" },
+  video: { tile: "bg-[#D6336C]" },
+  unlock: { tile: "bg-[#2F3A4C]" },
+  hub: { tile: "bg-[#5B5BD6]" },
+};
+
+const GLYPH = {
+  pdf: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M9.5 13h5M9.5 16.5h5"/>',
+  word: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="m9.5 12 1.2 5 1.3-4 1.3 4 1.2-5"/>',
+  excel: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="m10 12 4 5m0-5-4 5"/>',
+  slides: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M12 16v3M9 20h6"/><path d="M8 13l2.5-3 2 2 2.5-3"/>',
+  image: '<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4.5-4.5 3 3 2.5-2.5 4 4"/>',
+  audio: '<path d="M9 17V6l10-2v11"/><circle cx="7" cy="17" r="2.5"/><circle cx="17" cy="15" r="2.5"/>',
+  video: '<rect x="3.5" y="6" width="12" height="12" rx="2"/><path d="m15.5 10.5 5-3v9l-5-3z"/>',
+  unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/><circle cx="12" cy="16" r="1.4"/>',
+  hub: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+};
+
+function kindOf(page) {
+  if (page.type === "hub") return page.category === "unlock" ? "unlock" : "hub";
+  if (page.category === "unlock") return "unlock";
+  if (page.category === "document") return KIND_OF[(page.from || [])[0]] || "word";
+  return page.category;
+}
+
+function tile(kind, size = "md") {
+  const st = KIND_STYLE[kind] || KIND_STYLE.hub;
+  const box = size === "lg" ? "size-16 rounded-2xl" : "size-12 rounded-xl";
+  const ic = size === "lg" ? "size-9" : "size-7";
+  return `<span class="tool-tile ${box} ${st.tile}" aria-hidden="true"><svg class="${ic}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false">${GLYPH[kind] || GLYPH.hub}</svg></span>`;
+}
+
+const FILTERS = [
+  ["all", "Tümü"], ["document", "Belge"], ["image", "Görsel"], ["audio", "Ses"], ["video", "Video"], ["unlock", "Şifre kaldırma"],
+];
+
+function toolCard(page) {
+  return `<li data-cat="${esc(page.category)}"><a class="tool-card group" href="${urlOf(page.slug)}">${tile(kindOf(page))}<span class="tool-card-title">${esc(page.h1)}</span><span class="tool-card-desc">${esc(page.intro)}</span></a></li>`;
+}
+
+function toolGrid(pages, withFilters) {
+  const filters = withFilters ? `<div class="filters" role="toolbar" aria-label="Araçları filtrele">${FILTERS.map(([id, label], i) => `<button type="button" class="filter" data-filter="${id}" aria-pressed="${i === 0}">${esc(label)}</button>`).join("")}</div>` : "";
+  return `${filters}<ul class="tool-grid-cards" data-tool-grid>${pages.map(toolCard).join("")}</ul>`;
+}
+
+function howItWorks(steps) {
+  return `<section class="how" aria-labelledby="how-title"><h2 id="how-title">Nasıl çalışır</h2><ol>${steps.map((st) => `<li>${esc(st)}</li>`).join("")}</ol></section>`;
+}
+
 function toolPage(page) {
   const trail = trailFor(page);
+  const kind = kindOf(page);
+  const children = page.type === "hub" ? content.pages.filter((x) => x.category === page.category && x.type !== "hub") : [];
+  const related = (page.related || []).map((slug) => pageBySlug.get(slug)).filter(Boolean);
   const body = `<div class="wrap">
   ${breadcrumb(trail)}
-  <div class="hero">
-    <div class="hero-text">
-      <h1>${esc(page.h1)}</h1>
-      <p class="lead">${esc(page.intro)}</p>
-    </div>
-  </div>
-  <div class="tool-grid">
+  <header class="page-hero">
+    ${tile(kind, "lg")}
+    <h1>${esc(page.h1)}</h1>
+    <p class="lead">${esc(page.intro)}</p>
+  </header>
+  <div class="tool-wrap">
     ${toolFor(page)}
-    <aside class="tool-aside" aria-label="Önemli bilgiler">
-      ${notes()}
-      ${stepsBlock(page.steps)}
-    </aside>
+    ${notes()}
   </div>
-  ${page.type === "hub" ? hubLinks(page) : ""}
+  ${howItWorks(page.steps)}
+  ${children.length ? `<section class="section"><h2 class="section-title">${page.category === "unlock" ? "Dosya türüne göre şifre kaldırma" : "Bu kategorideki araçlar"}</h2>${toolGrid(children, false)}</section>` : ""}
   <article class="prose">
-    ${page.body.map((p) => `<p>${esc(p)}</p>`).join("\n    ")}
+    ${page.body.map((x) => `<p>${esc(x)}</p>`).join("\n    ")}
   </article>
   ${faqBlock(page.faq)}
-  ${relatedBlock(page.related)}
+  ${related.length ? `<section class="section"><h2 class="section-title">İlgili araçlar</h2>${toolGrid(related, false)}</section>` : ""}
 </div>`;
   return layout({
     title: page.title, description: page.description, path: urlOf(page.slug), body,
@@ -326,36 +387,25 @@ function toolPage(page) {
 
 function homePage() {
   const h = content.home;
-  const groups = ["document", "image", "audio", "video"].map((cat) => {
-    const hub = pageBySlug.get(CATEGORY_HUB[cat]);
-    const items = content.pages.filter((p) => p.category === cat && p.type === "convert");
-    return `<div class="popular-group"><h3><a href="${urlOf(hub.slug)}">${esc(hub.h1)}</a></h3><ul>${items.map((p) => `<li><a href="${urlOf(p.slug)}">${esc(p.h1)}</a></li>`).join("")}</ul></div>`;
-  }).join("");
-  const unlockItems = content.pages.filter((p) => p.type === "unlock");
+  const order = ["document", "image", "audio", "video", "unlock"];
+  const tools = content.pages.filter((x) => x.type !== "hub").sort((x, y) => order.indexOf(x.category) - order.indexOf(y.category));
   const body = `<div class="wrap">
-  <div class="hero hero-home">
-    <div class="hero-text">
-      <h1>${esc(h.h1)}</h1>
-      <p class="lead">${esc(h.intro)}</p>
-    </div>
-  </div>
-  <div class="tool-grid">
-    ${converterTool({})}
-    <aside class="tool-aside" aria-label="Önemli bilgiler">
+  <header class="home-hero">
+    <h1>${esc(h.h1)}</h1>
+    <p class="lead">${esc(h.intro)}</p>
+  </header>
+  <section class="section section-tools" aria-label="Tüm araçlar">
+    ${toolGrid(tools, true)}
+  </section>
+  <section class="section quick" aria-labelledby="quick-title">
+    <h2 class="section-title" id="quick-title">Ya da dosyanızı doğrudan bırakın</h2>
+    <div class="tool-wrap">
+      ${converterTool({})}
       ${notes()}
-      <section class="unlock-promo" aria-labelledby="unlock-promo-title">
-        <h2 id="unlock-promo-title">Şifresini bildiğiniz dosyayı açın</h2>
-        <p>PDF, Word, Excel ve PowerPoint dosyalarından açılış şifresini kaldırın. Şifre saklanmaz.</p>
-        <ul>${unlockItems.map((p) => `<li><a href="${urlOf(p.slug)}">${esc(p.h1)}</a></li>`).join("")}</ul>
-      </section>
-    </aside>
-  </div>
-  <section class="popular" aria-labelledby="popular-title">
-    <h2 id="popular-title">Sık kullanılan dönüşümler</h2>
-    <div class="popular-grid">${groups}</div>
+    </div>
   </section>
   <article class="prose">
-    ${h.body.map((p) => `<p>${esc(p)}</p>`).join("\n    ")}
+    ${h.body.map((x) => `<p>${esc(x)}</p>`).join("\n    ")}
   </article>
   ${faqBlock(h.faq)}
 </div>`;
@@ -370,7 +420,7 @@ function legalPage(page) {
   const sections = page.sections.map((s) => `${s.h ? `<h2>${esc(s.h)}</h2>` : ""}${(s.p || []).map((p) => `<p>${esc(p)}</p>`).join("")}${s.list ? `<ul>${s.list.map((li) => `<li>${esc(li)}</li>`).join("")}</ul>` : ""}`).join("\n");
   const body = `<div class="wrap">
   ${breadcrumb(trail)}
-  <div class="hero"><div class="hero-text"><h1>${esc(page.h1)}</h1></div></div>
+  <header class="page-hero"><h1>${esc(page.h1)}</h1></header>
   <article class="prose prose-legal">
     ${sections}
     ${page.slug === "hakkinda" ? `<p>İletişim: <a href="mailto:${legal.CONTACT}">${legal.CONTACT}</a></p>` : ""}
