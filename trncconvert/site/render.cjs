@@ -29,7 +29,7 @@ const ICON_PATHS = {
 const icon = (name, cls = "icon") =>
   `<svg class="${cls}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON_PATHS[name]}</svg>`;
 
-const LOGO = `<span class="brand-mark" aria-hidden="true"></span>`;
+const LOGO = `<img class="brand-mark" src="/logo.svg" width="32" height="32" alt="">`;
 
 let ASSET_VERSION = "1";
 const setAssetVersion = (v) => { ASSET_VERSION = v; };
@@ -94,7 +94,15 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(canonical)}">
+<link rel="icon" href="/icon-96.png" sizes="96x96" type="image/png">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:image" content="${SITE_URL}/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preload" href="/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${asset("/css/site.css")}">
 <script src="${asset("/js/theme.js")}"></script>
@@ -243,7 +251,7 @@ function breadcrumb(trail) {
 
 const ORG = {
   "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: `${SITE_URL}/`,
-  logo: `${SITE_URL}/favicon.svg`, email: legal.CONTACT,
+  logo: { "@type": "ImageObject", url: `${SITE_URL}/icon-512.png`, width: 512, height: 512 },
 };
 const WEBSITE = { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, url: `${SITE_URL}/`, inLanguage: "tr", publisher: { "@id": `${SITE_URL}/#org` } };
 
@@ -442,7 +450,7 @@ function notFoundPage() {
   return layout({ title: "Sayfa bulunamadı | TRNCConvert", description: "Aradığınız sayfa bulunamadı.", path: "/404", body, noindex: true });
 }
 
-const LASTMOD = "2026-10-15";
+const LASTMOD = "2026-10-23";
 
 function allPaths() {
   return ["/", ...content.pages.map((p) => urlOf(p.slug)), ...legal.pages.map((p) => urlOf(p.slug))];

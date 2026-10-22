@@ -104,7 +104,6 @@ const ROBOTS = site.robotsTxt();
 
 app.get("/robots.txt", (req, res) => res.type("text/plain; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(ROBOTS));
 app.get("/sitemap.xml", (req, res) => res.type("application/xml; charset=utf-8").set("Cache-Control", "public, max-age=3600").send(SITEMAP));
-app.get("/favicon.ico", (req, res) => res.redirect(301, "/favicon.svg"));
 app.get("/index.html", (req, res) => res.redirect(301, "/"));
 
 app.use((req, res, next) => {

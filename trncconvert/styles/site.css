@@ -109,8 +109,8 @@
   .site-header { @apply sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur; }
   .header-inner { @apply flex min-h-16 flex-wrap items-center gap-x-6 gap-y-2 py-2; }
   .brand { @apply inline-flex items-center gap-2.5 text-ink no-underline; }
-  .brand-mark { @apply inline-grid size-8 place-items-center rounded-lg bg-brand; }
-  .brand-mark::after { content: ""; @apply size-3.5 rotate-45 border-t-[3px] border-r-[3px] border-white -translate-x-0.5; }
+  .brand-mark { @apply size-8 shrink-0 transition duration-300 ease-snap; }
+  .brand:hover .brand-mark { @apply -rotate-6 scale-105; }
   .brand-name { @apply text-xl font-black tracking-tight; }
   .site-nav { @apply order-3 w-full overflow-x-auto md:order-none md:ml-auto md:w-auto; }
   .site-nav ul { @apply flex gap-1; }
