@@ -66,3 +66,22 @@ Yeni sürümden önce site hiçbir arama için sıralanamıyordu:
 - İngilizce sürüm: `/en/` altında, hreflang ile.
 - Office dosyalarında "düzenlemeyi kısıtla" korumasını kaldıran ayrı bir araç. Bu, "excel şifre kaldırma" aramalarının önemli bir kısmının asıl ihtiyacı.
 - PDF birleştirme, bölme ve sıkıştırma araçları.
+
+## 23 Ekim 2026 güncellemesi: favicon ve sıralama
+
+**Durum:** Site indekslendi ve "trnc convert" aramasında ilk organik sonuç. Genel aramalarda ("pdf word çevirme", "mp4 mp3 dönüştürücü") ilk sayfada Smallpdf, PDF24, FreeConvert gibi yıllardır var olan ve binlerce bağlantısı olan siteler yer alıyor. Yeni bir site için bu aramalar aylar sürer; ilk kazanımlar "word şifre kaldırma", "excel şifre kaldırma" gibi uzun kuyruklu aramalardan gelecek.
+
+**Dünya simgesinin nedeni:** Google SVG favicon kabul etmiyor (desteklenen biçimler: BMP, GIF, ICO, PNG, JPEG, PPM, TIFF). Sitenin tek simgesi SVG idi. Artık PNG ve ICO simgeler de var. Google'ın simgeyi güncellemesi birkaç gün ile birkaç hafta sürebilir.
+
+**Deploy'dan sonra hemen yapılacaklar:**
+1. Cloudflare'de önbelleği temizleyin (Caching, Purge Everything).
+2. Search Console'da URL Denetimi ile ana sayfa için "Dizine eklenmesini iste" deyin. Bu, favicon'un güncellenmesini hızlandırır.
+3. Coolify'da `www.trncconvert.com` alan adını ekleyin. Şu an 503 veriyor; bu Google'ın tarama bütçesini boşa harcar.
+4. Cloudflare'de "Always Use HTTPS" açık olsun ve HTTP yönlendirmesi 301 olsun; şu an 302/307.
+5. Bing Webmaster Tools'a Search Console'dan içe aktararak ekleyin.
+
+**İlk bağlantılar için (1-6 ay):**
+1. AlternativeTo'da siteyi Smallpdf, iLovePDF ve Convertio'ya alternatif olarak listeleyin.
+2. Product Hunt'ta tanıtın.
+3. Technopat, DonanımHaber ve Ekşi Sözlük'te gerçekten yardımcı olan cevaplarda, ilgili olduğunda bağlantı verin. Reklam gibi görünen paylaşımlardan kaçının.
+4. KKTC üniversitelerinden (DAÜ, YDÜ, ODTÜ KKK, UKÜ) ve yerel bloglardan "öğrenci araçları" listelerine eklenmeyi isteyin. En değerli bağlantı kaynağı budur.
